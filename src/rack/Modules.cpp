@@ -217,7 +217,6 @@ struct VideoIoModule : Module {
     }
 
     void onAdd(const AddEvent& e) override {
-        Module::onAdd(e);
         IoSettings io = node_->ioSettings();
         // Rack duplication strips the new module's top-level ID but preserves
         // our former owner ID. Regenerate only an untouched default name.
@@ -232,6 +231,7 @@ struct VideoIoModule : Module {
             defaultPublisherName = io.publisherName;
         }
         publisherOwnerModuleId = id;
+        Module::onAdd(e);
     }
 
     void appendData(json_t* rootJ) const override {

@@ -315,9 +315,11 @@ void Module::incrementTrigger(std::atomic<uint64_t>& counter) noexcept {
 
 void Module::onAdd(const AddEvent& e) {
     ::rack::engine::Module::onAdd(e);
+    for (size_t i = 0; i < params.size() && i < node_->params.size(); ++i)
+        node_->params[i].store(params[i].getValue(), std::memory_order_relaxed);
+    node_->bypass.store(isBypassed(), std::memory_order_release);
     context_ = APP ? APP->engine : NULL;
     service_ = ServiceRegistry::instance().attach(context_, node_);
-    node_->bypass.store(isBypassed(), std::memory_order_release);
 }
 
 void Module::onRemove(const RemoveEvent& e) {
