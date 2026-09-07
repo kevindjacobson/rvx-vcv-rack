@@ -26,6 +26,14 @@ title: ''
 
 <!-- Link the parent and any blocking issues; explain what must be resolved first. Write "None" if there are none. -->
 
+**Assumptions and shared contracts**
+
+<!-- State each material assumption, its evidence/status, and affected interfaces or dependent issues. Update this section when an audit changes an assumption; do not treat an open PR as merged behavior. -->
+
+**Code quality and reuse**
+
+<!-- Name existing code/contracts to reuse, affected consumers and any necessary specialized behavior. Include relevant clarity, interface, testability and maintainability acceptance criteria. For planning, specify the intended boundaries without claiming an implementation; use "Not applicable" with a reason when appropriate. -->
+
 **Work phase**
 
 <!-- State "Planning/research/documentation" or "Implementation". For implementation, identify the user's explicit coding approval or state "Blocked pending coding approval". Creating this issue does not authorize coding. -->
