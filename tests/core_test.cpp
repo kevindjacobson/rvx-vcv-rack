@@ -156,6 +156,33 @@ void testInvalidEdgesFormatsAndCycles() {
     report = renderer.render(Graph{{processor}, {}, 4}, Format{4096, 4096, 30, 1}, 4, 0.2);
     CHECK(report.errors == 1);
     CHECK(processor->display()->status.find("512 MiB") != std::string::npos);
+
+    std::vector<std::shared_ptr<Node>> manySources;
+    for (int i = 0; i < 70; ++i) manySources.push_back(std::make_shared<Node>(Kind::TestImage));
+    report = renderer.render(Graph{manySources, {}, 5}, Format{}, 5, 0.3);
+    CHECK(report.errors == 1);
+    CHECK(manySources.front()->display()->status.find("512 MiB") != std::string::npos);
+}
+
+void testFormatChangeClearsRasterState() {
+    auto source = std::make_shared<Node>(Kind::TestImage);
+    auto delay = std::make_shared<Node>(Kind::Delay);
+    auto processor = std::make_shared<Node>(Kind::Processor);
+    source->params[0].store(2.f);
+    Graph graph{{source, delay, processor},
+                {connect(source, 0, delay, 0), connect(delay, 0, processor, 0)}, 1};
+    Renderer renderer;
+    renderer.render(graph, Format{2, 1, 30, 1}, 0, 0);
+    renderer.render(graph, Format{2, 1, 30, 1}, 1, 1.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 1, 0, 0), 1.f, 0.f);
+
+    auto report = renderer.render(graph, Format{4, 1, 30, 1}, 2, 2.0 / 30.0);
+    CHECK(report.errors == 0);
+    CHECK(delay->display()->outputs[0]->width == 4);
+    CHECK(processor->display()->outputs[0]->width == 4);
+    for (float value : delay->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+    renderer.render(graph, Format{4, 1, 30, 1}, 3, 3.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 3, 0, 0), 1.f, 0.f);
 }
 
 void testDelayReadCommitClearAndCleanup() {
@@ -224,6 +251,24 @@ void testCvAudioEpochAndTriggers() {
     NEAR(bridge->display()->outputs[0]->pixels[0], .2f, 1e-5f);
     NEAR(bridge->display()->outputs[0]->pixels[3], .4f, 1e-5f);
 
+    CHECK(bridge->audio.push({0.0, 5.f, 3}));
+    CHECK(bridge->audio.push({0.1, 10.f, 3}));
+    renderer.render(graph, format, 12, 100.0); // late-created bridge maps its local epoch to video time
+    NEAR(bridge->display()->outputs[0]->pixels[0], .5f, 1e-5f);
+    NEAR(bridge->display()->outputs[0]->pixels[3], 1.f, 1e-5f);
+
+    CHECK(bridge->audio.push({0.0, 10.f, 4})); // reset/restart establishes a fresh mapping
+    CHECK(bridge->audio.push({0.1, 0.f, 4}));
+    renderer.render(graph, format, 13, 200.0);
+    NEAR(bridge->display()->outputs[0]->pixels[0], 1.f, 1e-5f);
+    NEAR(bridge->display()->outputs[0]->pixels[3], 0.f, 1e-5f);
+
+    CHECK(bridge->audio.push({0.0, 2.f, 5}));
+    CHECK(bridge->audio.push({0.05, 6.f, 5}));
+    renderer.render(graph, Format{4, 1, 20, 1}, 14, 300.0); // rate change remaps raster history
+    NEAR(bridge->display()->outputs[0]->pixels[0], .2f, 1e-5f);
+    NEAR(bridge->display()->outputs[0]->pixels[3], .6f, 1e-5f);
+
     bridge->params[0].store(2.f);
     bridge->triggers.fetch_add(3);
     for (int tick = 0; tick < 4; ++tick) {
@@ -269,14 +314,14 @@ void testBackendBoundaryAndHold() {
     incoming->pixels = {-.5f, .5f, 1.5f};
     state->incoming = incoming;
     Renderer renderer([state] { return std::make_unique<FakeBackend>(state); });
-    auto source = std::make_shared<Node>(Kind::TestImage);
     auto io = std::make_shared<Node>(Kind::VideoIo);
-    source->params[0].store(2.f);
+    auto processor = std::make_shared<Node>(Kind::Processor);
     IoSettings settings;
     settings.publish = true;
     settings.holdLast = true;
     io->setIoSettings(settings);
-    Graph graph{{source, io}, {connect(source, 0, io, 0)}, 1};
+    Graph graph{{io, processor},
+                {connect(io, 0, processor, 0), connect(processor, 0, io, 0)}, 1};
     auto report = renderer.render(graph, format, 0, 0);
     CHECK(report.errors == 0 && state->receives == 1 && state->publishes == 1);
     auto output = io->display()->outputs[0];
@@ -284,15 +329,74 @@ void testBackendBoundaryAndHold() {
     NEAR(pixel(output, 1, 1, 2), 1.5f, 0.f);
     NEAR(pixel(output, 1, 1, 3), 1.f, 0.f); // RGB receives explicit straight alpha
     for (float value : state->published->pixels) CHECK(value >= 0.f && value <= 1.f);
+    NEAR(pixel(state->published, 0, 0, 0), 0.f, 0.f);
+    NEAR(pixel(state->published, 0, 0, 1), .5f, 0.f);
+    NEAR(pixel(state->published, 0, 0, 2), 1.f, 0.f);
     CHECK(io->display()->sources.size() == 1 && io->display()->status == "ready");
 
     state->returnFrame = false;
     renderer.render(graph, format, 1, 1.0 / 30.0);
     NEAR(pixel(io->display()->outputs[0], 0, 0, 0), -.5f, 0.f);
+    renderer.render(graph, Format{4, 1, 30, 1}, 2, 2.0 / 30.0);
+    CHECK(io->display()->outputs[0]->width == 4);
+    for (float value : io->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
     settings.holdLast = false;
     io->setIoSettings(settings);
-    renderer.render(graph, format, 2, 2.0 / 30.0);
+    renderer.render(graph, format, 3, 3.0 / 30.0);
     NEAR(pixel(io->display()->outputs[0], 0, 0, 0), 0.f, 0.f);
+}
+
+struct ThreadBackendState {
+    std::atomic<int> created{0}, calls{0}, destroyed{0}, violations{0};
+};
+
+class ThreadBackend : public VideoBackend {
+public:
+    explicit ThreadBackend(std::shared_ptr<ThreadBackendState> value)
+        : state(std::move(value)), owner(std::this_thread::get_id()) { ++state->created; }
+    ~ThreadBackend() override {
+        if (std::this_thread::get_id() != owner) ++state->violations;
+        ++state->destroyed;
+    }
+    std::vector<VideoSource> sources() override { verify(); return {}; }
+    FramePtr receive(const IoSettings&, const Format&, uint64_t, double) override {
+        verify(); ++state->calls; return {};
+    }
+    void publish(const IoSettings&, FramePtr) override { verify(); }
+    std::string status() const override {
+        if (std::this_thread::get_id() != owner) ++state->violations;
+        return "ready";
+    }
+private:
+    void verify() { if (std::this_thread::get_id() != owner) ++state->violations; }
+    std::shared_ptr<ThreadBackendState> state;
+    std::thread::id owner;
+};
+
+void waitForCalls(const std::shared_ptr<ThreadBackendState>& state, int expected) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (state->calls.load() < expected && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+}
+
+void testBackendWorkerLifetime() {
+    auto state = std::make_shared<ThreadBackendState>();
+    auto io = std::make_shared<Node>(Kind::VideoIo);
+    Engine engine(Format{2, 1, 100, 1},
+                  [state] { return std::make_unique<ThreadBackend>(state); });
+    engine.submit(Graph{{io}, {}, 1});
+    engine.start();
+    waitForCalls(state, 1);
+    engine.stop();
+    CHECK(state->created.load() == 1 && state->destroyed.load() == 1);
+    CHECK(state->violations.load() == 0);
+
+    const int previousCalls = state->calls.load();
+    engine.start();
+    waitForCalls(state, previousCalls + 1);
+    engine.stop();
+    CHECK(state->created.load() == 2 && state->destroyed.load() == 2);
+    CHECK(state->violations.load() == 0);
 }
 
 void testEngineIndependentClock() {
@@ -326,8 +430,10 @@ int main() {
     testRasterPhaseOrdering();
     testInvalidEdgesFormatsAndCycles();
     testDelayReadCommitClearAndCleanup();
+    testFormatChangeClearsRasterState();
     testCvAudioEpochAndTriggers();
     testBackendBoundaryAndHold();
+    testBackendWorkerLifetime();
     testEngineIndependentClock();
     if (failures) {
         std::cerr << failures << " test assertion(s) failed\n";
