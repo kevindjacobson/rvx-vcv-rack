@@ -32,6 +32,10 @@ title: ''
 
 <!-- State each material assumption, its evidence/status, and affected interfaces or dependent issues. Update this section when an audit changes an assumption; do not treat an open PR as merged behavior. -->
 
+**Issue consistency audit**
+
+<!-- Record the pre-work audit here or link its record: date, reviewed base/change revisions, all open issues/PRs reviewed, supporting evidence, findings or an explicit no-change result, affected issue/specification updates and unresolved follow-ups. Keep the record current through readiness, merge and post-merge reconciliation. -->
+
 **Code quality and reuse**
 
 <!-- Name existing code/contracts to reuse, affected consumers and any necessary specialized behavior. Include relevant clarity, interface, testability and maintainability acceptance criteria. For planning, specify the intended boundaries without claiming an implementation; use "Not applicable" with a reason when appropriate. -->
