@@ -1,0 +1,12 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Local downloaded source-page caches
+research/*.txt
+research/inventory.json
+
+# Future local build output
+build/
+dist/
+*.vcvplugin

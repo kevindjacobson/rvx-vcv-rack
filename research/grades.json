@@ -1,0 +1,770 @@
+[
+  {
+    "name": "LNK",
+    "grade": "A",
+    "function": "Signal distribution",
+    "reason": "Routing references is simple; electrical loading would need a separate optional model.",
+    "source": "https://lzxindustries.net/modules/lnk",
+    "series": "P series"
+  },
+  {
+    "name": "MLT",
+    "grade": "A",
+    "function": "Cascaded multiples",
+    "reason": "Easy fan-out and normalled connections; little need for this many duplicate ports in software.",
+    "source": "https://lzxindustries.net/modules/mlt",
+    "series": "P series"
+  },
+  {
+    "name": "P",
+    "grade": "A",
+    "function": "Attenuation and crossfade",
+    "reason": "Simple arithmetic. Preserve its intended low-frequency control behavior.",
+    "source": "https://lzxindustries.net/modules/p",
+    "series": "P series"
+  },
+  {
+    "name": "PAB",
+    "grade": "B",
+    "function": "Buffers and tiny delays",
+    "reason": "Fractional raster-sample delays can reproduce registration shifts; timing and interpolation matter.",
+    "source": "https://lzxindustries.net/modules/pab",
+    "series": "P series"
+  },
+  {
+    "name": "PGO",
+    "grade": "A",
+    "function": "Gain and offset",
+    "reason": "Straightforward signed arithmetic with configurable routing and clipping.",
+    "source": "https://lzxindustries.net/modules/pgo",
+    "series": "P series"
+  },
+  {
+    "name": "PRM",
+    "grade": "A",
+    "function": "Rectification and multiplication",
+    "reason": "Direct mathematical operators; feedback-patched division needs the shared loop solver.",
+    "source": "https://lzxindustries.net/modules/prm",
+    "series": "P series"
+  },
+  {
+    "name": "Angles",
+    "grade": "A",
+    "function": "Rotated ramps",
+    "reason": "Compute horizontal/vertical coordinates and fixed-angle mixtures directly.",
+    "source": "https://lzxindustries.net/modules/angles",
+    "series": "Gen3"
+  },
+  {
+    "name": "Contour",
+    "grade": "B",
+    "function": "Video high-pass filters",
+    "reason": "Needs filters running in raster order, including history across lines, for convincing streaks.",
+    "source": "https://lzxindustries.net/modules/contour",
+    "series": "Gen3"
+  },
+  {
+    "name": "DC Distro 3A",
+    "grade": "N",
+    "function": "Power distribution",
+    "reason": "No signal-processing function to recreate in Rack.",
+    "source": "https://lzxindustries.net/modules/dc-distro-3a",
+    "series": "Gen3"
+  },
+  {
+    "name": "DSG3",
+    "grade": "A",
+    "function": "Shapes and analog logic",
+    "reason": "Folds, curves, min/max and blends map well to per-pixel processing.",
+    "source": "https://lzxindustries.net/modules/dsg3",
+    "series": "Gen3"
+  },
+  {
+    "name": "DWO3",
+    "grade": "B",
+    "function": "Wideband oscillators",
+    "reason": "Free-running phase, reset, sync, and video-rate FM require time-aware synthesis.",
+    "source": "https://lzxindustries.net/modules/dwo3",
+    "series": "Gen3"
+  },
+  {
+    "name": "ESG3",
+    "grade": "B",
+    "function": "Encoding and sync",
+    "reason": "Virtual timing and composite encoding are feasible. Electrical output and genlock require hardware.",
+    "source": "https://lzxindustries.net/modules/esg3",
+    "series": "Gen3"
+  },
+  {
+    "name": "Factors",
+    "grade": "A",
+    "function": "Four-quadrant modulation",
+    "reason": "Multiplication around a defined midpoint maps directly to software.",
+    "source": "https://lzxindustries.net/modules/factors",
+    "series": "Gen3"
+  },
+  {
+    "name": "FKG3",
+    "grade": "A",
+    "function": "Keying and RGB fades",
+    "reason": "Per-pixel comparisons, soft transitions and RGB interpolation are straightforward.",
+    "source": "https://lzxindustries.net/modules/fkg3",
+    "series": "Gen3"
+  },
+  {
+    "name": "Keychain",
+    "grade": "A",
+    "function": "Hard keys",
+    "reason": "Threshold comparisons are easy; exact edge speed and tiny delays require oversampling.",
+    "source": "https://lzxindustries.net/modules/keychain",
+    "series": "Gen3"
+  },
+  {
+    "name": "Matte",
+    "grade": "A",
+    "function": "Static color levels",
+    "reason": "Constant fields and averages are elementary; retain its averaging behavior.",
+    "source": "https://lzxindustries.net/modules/matte",
+    "series": "Gen3"
+  },
+  {
+    "name": "Proc",
+    "grade": "A",
+    "function": "Triple gain/offset mixer",
+    "reason": "Signed values and operation order must be preserved before final display clipping.",
+    "source": "https://lzxindustries.net/modules/proc",
+    "series": "Gen3"
+  },
+  {
+    "name": "Ribbons",
+    "grade": "A",
+    "function": "Three-bit amplitude slicing",
+    "reason": "Straightforward thresholds and bit outputs. Avoid adding an artificial pixelation clock.",
+    "source": "https://lzxindustries.net/modules/ribbons",
+    "series": "Gen3"
+  },
+  {
+    "name": "Scrolls",
+    "grade": "B",
+    "function": "Animated ramp generation",
+    "reason": "Feasible stateful motion engine; reproduce modes, slew and timing rather than only translating a texture.",
+    "source": "https://lzxindustries.net/modules/scrolls/manual",
+    "series": "Gen3"
+  },
+  {
+    "name": "SMX3",
+    "grade": "A",
+    "function": "Matrix mixing",
+    "reason": "Small per-pixel matrix operations; preserve negative and above-white intermediate values.",
+    "source": "https://lzxindustries.net/modules/smx3",
+    "series": "Gen3"
+  },
+  {
+    "name": "Stacker",
+    "grade": "A",
+    "function": "Quadrilateral keys and priority",
+    "reason": "Comparisons and priority masks are inexpensive GPU operations.",
+    "source": "https://lzxindustries.net/modules/stacker",
+    "series": "Gen3"
+  },
+  {
+    "name": "Stairs",
+    "grade": "A",
+    "function": "Multistage wavefolding",
+    "reason": "Piecewise transfer curves are easy; fine patterns need controlled antialiasing.",
+    "source": "https://lzxindustries.net/modules/stairs",
+    "series": "Gen3"
+  },
+  {
+    "name": "Sum/Dist",
+    "grade": "A",
+    "function": "Summing and distribution",
+    "reason": "Simple adds and routing. Optional propagation-delay modeling would raise fidelity effort.",
+    "source": "https://lzxindustries.net/modules/sumdist/manual",
+    "series": "Gen3"
+  },
+  {
+    "name": "Swatch",
+    "grade": "A",
+    "function": "RGB/YIQ conversion",
+    "reason": "Matrix transforms are straightforward; preserve unclamped outputs where appropriate.",
+    "source": "https://lzxindustries.net/modules/swatch",
+    "series": "Gen3"
+  },
+  {
+    "name": "Switcher",
+    "grade": "A",
+    "function": "RGB source routing",
+    "reason": "Per-pixel selection supports image-controlled switching as well as ordinary CV selection.",
+    "source": "https://lzxindustries.net/modules/switcher",
+    "series": "Gen3"
+  },
+  {
+    "name": "TBC2",
+    "grade": "B",
+    "function": "Dual video input and timing",
+    "reason": "File/camera ingestion and frame synchronization are feasible; raw analog decoding depends on capture hardware.",
+    "source": "https://lzxindustries.net/modules/tbc2",
+    "series": "Gen3"
+  },
+  {
+    "name": "TBC2 Expander",
+    "grade": "N",
+    "function": "VGA connector expansion",
+    "reason": "Physical connector breakout; represent supported inputs in the software input module.",
+    "source": "https://lzxindustries.net/modules/tbc2-expander",
+    "series": "Gen3"
+  },
+  {
+    "name": "Castle 000 ADC",
+    "grade": "A",
+    "function": "Three-bit conversion",
+    "reason": "Thresholds generate bit planes; analog edge characteristics are a separate fidelity layer.",
+    "source": "https://lzxindustries.net/modules/castle-000-adc",
+    "series": "Castle"
+  },
+  {
+    "name": "Castle 001 DAC",
+    "grade": "A",
+    "function": "Bit-to-level conversion",
+    "reason": "Weighted sums of bit planes are easy.",
+    "source": "https://lzxindustries.net/modules/castle-001-dac",
+    "series": "Castle"
+  },
+  {
+    "name": "Castle 010 Clock VCO",
+    "grade": "B",
+    "function": "Video clock oscillator",
+    "reason": "Must resolve clock edges at video time scales independently of Rack's audio rate.",
+    "source": "https://lzxindustries.net/modules/castle-010-clock-vco",
+    "series": "Castle"
+  },
+  {
+    "name": "Castle 011 Shift Register",
+    "grade": "B",
+    "function": "Clocked bit memory",
+    "reason": "State must advance in raster-time order, not once per display frame.",
+    "source": "https://lzxindustries.net/modules/castle-011-shift-register",
+    "series": "Castle"
+  },
+  {
+    "name": "Castle 100 Multi Gate",
+    "grade": "A",
+    "function": "Boolean logic",
+    "reason": "Direct boolean operations after the input thresholds.",
+    "source": "https://lzxindustries.net/modules/castle-100-multi-gate",
+    "series": "Castle"
+  },
+  {
+    "name": "Castle 101 Quad Gate",
+    "grade": "A",
+    "function": "Configurable logic combinations",
+    "reason": "Small truth tables and routing; chip variants can become selectable modes.",
+    "source": "https://lzxindustries.net/modules/castle-101-quad-gate",
+    "series": "Castle"
+  },
+  {
+    "name": "Castle 110 Counter",
+    "grade": "B",
+    "function": "Clock counting and division",
+    "reason": "Simple state logic, but arbitrary video clocks require edge-accurate evaluation.",
+    "source": "https://lzxindustries.net/modules/castle-110-counter",
+    "series": "Castle"
+  },
+  {
+    "name": "Castle 111 D Flip Flops",
+    "grade": "B",
+    "function": "Clocked bit storage",
+    "reason": "Sampling, reset and state history need a defined timing model.",
+    "source": "https://lzxindustries.net/modules/castle-111-d-flip-flops",
+    "series": "Castle"
+  },
+  {
+    "name": "Diver",
+    "grade": "B",
+    "function": "Audio-to-video waveform sampling",
+    "reason": "Capture an audio buffer and read it along raster axes; freeze and phase behavior need careful timing.",
+    "source": "https://community.lzxindustries.net/t/1455/",
+    "series": "Orion"
+  },
+  {
+    "name": "Escher Sketch",
+    "grade": "B",
+    "function": "XY/pressure gesture controller",
+    "reason": "XY and gesture recording are easy; pressure and the physical feel depend on the input device.",
+    "source": "https://community.lzxindustries.net/t/1345/",
+    "series": "Orion"
+  },
+  {
+    "name": "Fortress",
+    "grade": "B",
+    "function": "Clocked low-resolution graphics",
+    "reason": "Counters, bit operations, shift registers and cellular automata are implementable; slip-sync is the harder part.",
+    "source": "https://community.lzxindustries.net/t/1392/",
+    "series": "Orion"
+  },
+  {
+    "name": "Memory Palace",
+    "grade": "B",
+    "function": "Frame memory and feedback",
+    "reason": "Strong candidate. Delay buffers, transforms, keying and painting are standard techniques, but integration is substantial.",
+    "source": "https://community.lzxindustries.net/t/memory-palace-user-guide/884",
+    "series": "Orion"
+  },
+  {
+    "name": "Arch",
+    "grade": "A",
+    "function": "Nonlinear signal functions",
+    "reason": "Min/max, rectification and transfer curves map directly to GPU arithmetic.",
+    "source": "https://community.lzxindustries.net/t/1305/",
+    "series": "Expedition"
+  },
+  {
+    "name": "Bridge",
+    "grade": "A",
+    "function": "Scaling, mixing and fading",
+    "reason": "Simple operations; video ports and ordinary Rack CV still need explicit conversion.",
+    "source": "https://community.lzxindustries.net/t/1295/",
+    "series": "Expedition"
+  },
+  {
+    "name": "Color Chords",
+    "grade": "A",
+    "function": "Color mixing with layer priority",
+    "reason": "Layer opacity and priority are straightforward to implement.",
+    "source": "https://community.lzxindustries.net/t/1297/",
+    "series": "Expedition"
+  },
+  {
+    "name": "Curtain",
+    "grade": "B",
+    "function": "Edges, blur and enhancement",
+    "reason": "Model raster-time filter response, rectification and wet/dry mixing for its characteristic trails.",
+    "source": "https://community.lzxindustries.net/t/1306/",
+    "series": "Expedition"
+  },
+  {
+    "name": "Cyclops",
+    "grade": "C",
+    "function": "Laser display interface",
+    "reason": "An onscreen vector preview is easy; actual ILDA output needs a compatible DAC and separate integration.",
+    "source": "https://lzxindustries.net/modules/cyclops",
+    "series": "Expedition"
+  },
+  {
+    "name": "Doorway",
+    "grade": "A",
+    "function": "Soft keys and outlines",
+    "reason": "Gain, clipping, rectification and foreground/background blending are direct operations.",
+    "source": "https://community.lzxindustries.net/t/1307/",
+    "series": "Expedition"
+  },
+  {
+    "name": "Liquid TV",
+    "grade": "A",
+    "function": "Video monitoring",
+    "reason": "An embedded monitor is straightforward; physical display electronics add no necessary software behavior.",
+    "source": "https://lzxindustries.net/modules/liquid-tv",
+    "series": "Expedition"
+  },
+  {
+    "name": "Mapper",
+    "grade": "A",
+    "function": "Hue-based color conversion",
+    "reason": "Implement its color mapping and transfer curves; do not substitute a generic HSV picker without checking behavior.",
+    "source": "https://lzxindustries.net/modules/mapper",
+    "series": "Expedition"
+  },
+  {
+    "name": "Marble Index",
+    "grade": "B",
+    "function": "Three-layer compositing",
+    "reason": "All operations are feasible; numerous routing, inversion and solarization combinations require careful reconstruction.",
+    "source": "https://lzxindustries.net/modules/marble-index",
+    "series": "Expedition"
+  },
+  {
+    "name": "Navigator",
+    "grade": "A",
+    "function": "Coordinate rotation and position",
+    "reason": "Arithmetic on two signal fields; it does not require a general 3D renderer.",
+    "source": "https://lzxindustries.net/modules/navigator",
+    "series": "Expedition"
+  },
+  {
+    "name": "Passage",
+    "grade": "A",
+    "function": "Triple signal processing",
+    "reason": "Basic gain, inversion, offset and mixing; preserve the documented operation order.",
+    "source": "https://lzxindustries.net/modules/passage",
+    "series": "Expedition"
+  },
+  {
+    "name": "Pendulum",
+    "grade": "A",
+    "function": "Animation and modulation",
+    "reason": "LFOs, crossfading and routing fit Rack naturally; response curves need calibration.",
+    "source": "https://lzxindustries.net/modules/pendulum",
+    "series": "Expedition"
+  },
+  {
+    "name": "Polar Fringe",
+    "grade": "B",
+    "function": "Chroma key generation",
+    "reason": "Feasible color-distance/transfer model; matching the hardware's soft boundary needs references.",
+    "source": "https://lzxindustries.net/modules/polar-fringe",
+    "series": "Expedition"
+  },
+  {
+    "name": "Prismatic Ray",
+    "grade": "B",
+    "function": "Video oscillator",
+    "reason": "Same timing challenges as DWO3: free phase, modulation, reset and alias control.",
+    "source": "https://lzxindustries.net/modules/prismatic-ray",
+    "series": "Expedition"
+  },
+  {
+    "name": "Sensory Translator",
+    "grade": "A",
+    "function": "Audio-band envelope extraction",
+    "reason": "Audio filters and envelope followers are native DSP tasks; route Mac microphone through an audio input.",
+    "source": "https://lzxindustries.net/modules/sensory-translator",
+    "series": "Expedition"
+  },
+  {
+    "name": "Shapechanger",
+    "grade": "B",
+    "function": "Coordinate waveshaping",
+    "reason": "Feasible nonlinear math, with work needed to recover exact curves and control interactions.",
+    "source": "https://lzxindustries.net/modules/shapechanger",
+    "series": "Expedition"
+  },
+  {
+    "name": "Staircase",
+    "grade": "A",
+    "function": "Continuous solarization",
+    "reason": "Piecewise waveshaping is inexpensive; preserve continuous folds rather than imposing stepped posterization.",
+    "source": "https://lzxindustries.net/modules/staircase",
+    "series": "Expedition"
+  },
+  {
+    "name": "Topogram",
+    "grade": "A",
+    "function": "Band keys and colorization masks",
+    "reason": "Threshold bands, edge softness and grouped outputs are direct per-pixel operations.",
+    "source": "https://lzxindustries.net/modules/topogram",
+    "series": "Expedition"
+  },
+  {
+    "name": "Visual Cortex",
+    "grade": "B",
+    "function": "Core video synthesis and I/O",
+    "reason": "Its generator, colorizer and compositor translate well; encoder/decoder and timing add integration work.",
+    "source": "https://community.lzxindustries.net/t/1314/",
+    "series": "Expedition"
+  },
+  {
+    "name": "War Of The Ants",
+    "grade": "B",
+    "function": "Controlled noise textures",
+    "reason": "Model correlated noise across raster time and motion, not independent random pixels alone.",
+    "source": "https://community.lzxindustries.net/t/1291/",
+    "series": "Expedition"
+  },
+  {
+    "name": "Cadet I Sync Generator",
+    "grade": "B",
+    "function": "Raster timing and reference",
+    "reason": "Virtual timing is straightforward; reproducing lock behavior and actual electrical sync is harder.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-i-sync-generator",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet II RGB Encoder",
+    "grade": "B",
+    "function": "Composite encoding",
+    "reason": "Shares the NTSC encoder engine; real composite output needs hardware.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-ii-rgb-encoder",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet III Video Input",
+    "grade": "B",
+    "function": "External video conditioning",
+    "reason": "Virtual clamping/conditioning is feasible; physical signal recovery depends on the input interface.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-iii-video-input",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet IV Dual Ramp Generator",
+    "grade": "A",
+    "function": "Horizontal and vertical ramps",
+    "reason": "Deterministic coordinate fields with defined reset and blanking.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-iv-dual-ramp-generator",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet IX VCO",
+    "grade": "B",
+    "function": "Wideband triangle oscillator",
+    "reason": "Requires video-time phase integration and sync modeling.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-ix-voltage-controlled-oscillator",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet V Scaler",
+    "grade": "A",
+    "function": "Voltage scaling",
+    "reason": "Small fixed gain/offset operators; build variants can be modes.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-v-scaler",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet VI Fader",
+    "grade": "A",
+    "function": "Crossfading",
+    "reason": "Direct interpolation with the appropriate control range.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-vi-fader",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet VII Processor",
+    "grade": "A",
+    "function": "Signal processing",
+    "reason": "Simple gain/offset/summing primitives; verify exact circuit routing before implementation.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-vii-processor",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet VIII Hard Key Generator",
+    "grade": "A",
+    "function": "Comparators",
+    "reason": "Direct thresholds, with edge modeling available later.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-viii-hard-key-generator",
+    "series": "Cadet"
+  },
+  {
+    "name": "Cadet X Multiplier",
+    "grade": "A",
+    "function": "Two-/four-quadrant multiplication",
+    "reason": "Direct arithmetic with the appropriate sign and clipping conventions.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/cadet-x-multiplier",
+    "series": "Cadet"
+  },
+  {
+    "name": "Colorspace Mapper",
+    "grade": "A",
+    "function": "Color conversion",
+    "reason": "Recover documented color mapping rather than assuming standard HSV behavior.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Visionary"
+  },
+  {
+    "name": "Differentiator",
+    "grade": "B*",
+    "function": "Legacy filter circuit",
+    "reason": "A raster-time filter is feasible; exact response needs a more complete circuit audit.",
+    "source": "https://www.analoguehaven.com/lzx-industries/differentiator/manual.pdf",
+    "series": "Visionary"
+  },
+  {
+    "name": "Function Generator",
+    "grade": "A*",
+    "function": "Legacy nonlinear shaper",
+    "reason": "Piecewise transfer functions fit software well; confirm the production revision's response.",
+    "source": "https://www.analoguehaven.com/lzx-industries/function-generator/manual.pdf",
+    "series": "Visionary"
+  },
+  {
+    "name": "Triple Video Fader & Key Generator",
+    "grade": "A",
+    "function": "Faders and keys",
+    "reason": "Comparisons and blends are easy; retain normalled connections and mode logic.",
+    "source": "https://lzxindustries.net/modules/triple-video-fader-key-generator",
+    "series": "Visionary"
+  },
+  {
+    "name": "Triple Video Interface",
+    "grade": "B",
+    "function": "Analog input conditioning",
+    "reason": "Virtual processing is feasible; external voltages and genlock require hardware.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Visionary"
+  },
+  {
+    "name": "Triple Video Processor",
+    "grade": "A",
+    "function": "Gain and bias processing",
+    "reason": "Order of operations is significant and must match the original.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Visionary"
+  },
+  {
+    "name": "Video Blending Matrix",
+    "grade": "A",
+    "function": "Signal mixing",
+    "reason": "Simple sums and absolute-value processing.",
+    "source": "https://lzxindustries.net/modules/video-blending-matrix",
+    "series": "Visionary"
+  },
+  {
+    "name": "Video Flip Flops",
+    "grade": "B",
+    "function": "Bit memory",
+    "reason": "Needs raster-clock state, not frame-only evaluation.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Visionary"
+  },
+  {
+    "name": "Video Logic",
+    "grade": "A",
+    "function": "Boolean processing",
+    "reason": "Truth tables are easy; hardware edge artifacts need extra modeling.",
+    "source": "https://lzxindustries.net/modules/video-logic",
+    "series": "Visionary"
+  },
+  {
+    "name": "Video Waveform Generator",
+    "grade": "B",
+    "function": "Video oscillator",
+    "reason": "Stable sync and modulation require the shared time-domain oscillator engine.",
+    "source": "https://lzxindustries.net/modules/video-waveform-generator",
+    "series": "Visionary"
+  },
+  {
+    "name": "Voltage Interface I",
+    "grade": "A",
+    "function": "Voltage conditioning",
+    "reason": "Gain, offset and clipping are simple; physical voltage output remains external.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Visionary"
+  },
+  {
+    "name": "Audio Frequency Decoder",
+    "grade": "A",
+    "function": "Audio envelopes",
+    "reason": "Ordinary audio DSP; filter constants need matching.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Color Time Base Corrector",
+    "grade": "B",
+    "function": "External input synchronization",
+    "reason": "Virtual frame alignment is practical; physical decoding needs capture hardware.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Color Video Encoder",
+    "grade": "B",
+    "function": "Composite output encoding",
+    "reason": "Shares the NTSC engine; electrical output is separate.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Octal Video Quantizer & Sequencer",
+    "grade": "B",
+    "function": "Quantization and sequencing",
+    "reason": "The arithmetic is easy; clock ordering needs care.",
+    "source": "https://lzxindustries.net/modules/octal-video-quantizer-sequencer",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Triple Video Multimode Filter",
+    "grade": "B",
+    "function": "Filtering",
+    "reason": "Preserve raster-time state and response curves.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Video Divisions",
+    "grade": "B",
+    "function": "Clock division",
+    "reason": "Needs the shared edge-timing engine.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Video Ramps",
+    "grade": "A",
+    "function": "Ramp generation",
+    "reason": "Straightforward coordinate arithmetic.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Video Sync Generator",
+    "grade": "B",
+    "function": "Sync generation",
+    "reason": "Virtual timing is feasible; physical locking is separate.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Voltage Bridge",
+    "grade": "A",
+    "function": "Voltage scaling",
+    "reason": "Straightforward gain operators.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "XY Display Driver",
+    "grade": "C*",
+    "function": "Display interface",
+    "reason": "Virtual preview is feasible; hardware behavior is sparsely documented.",
+    "source": "https://community.lzxindustries.net/t/all-about-visionary-series-legacy/1352",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "DC Distro 5A",
+    "grade": "N",
+    "function": "Power distribution",
+    "reason": "Hardware power utility; no software processing role.",
+    "source": "https://lzxindustries.net/modules/dc-distro-5a",
+    "series": "Additional historical modules"
+  },
+  {
+    "name": "Chromagnon",
+    "grade": "B*",
+    "function": "Integrated video instrument",
+    "reason": "Shape/color processing is feasible; evolving revisions complicate exact matching. Physical ILDA and analog I/O need hardware.",
+    "source": "https://lzxindustries.net/instruments/chromagnon",
+    "series": "Standalone instruments and media"
+  },
+  {
+    "name": "Videomancer",
+    "grade": "B",
+    "function": "Programmable video effects",
+    "reason": "Feasible program by program. Public VHDL examples help, but FPGA programs must be translated; they are not Rack binaries.",
+    "source": "https://github.com/lzxindustries/videomancer-sdk",
+    "series": "Standalone instruments and media"
+  },
+  {
+    "name": "Vidiot",
+    "grade": "B",
+    "function": "Integrated analog video synth",
+    "reason": "Build from oscillator, keyer, color and input engines; interaction and feedback require tuning.",
+    "source": "https://lzxindustries.net/instruments/vidiot",
+    "series": "Standalone instruments and media"
+  },
+  {
+    "name": "BitVision",
+    "grade": "B",
+    "function": "Low-resolution audiovisualizer",
+    "reason": "Pixel graphics and audio modulation are easy; analog color-phase behavior needs the composite model.",
+    "source": "https://community.lzxindustries.net/t/all-about-bitvision-legacy/1353",
+    "series": "Standalone instruments and media"
+  },
+  {
+    "name": "Andor 1",
+    "grade": "A*",
+    "function": "Media playback",
+    "reason": "Ordinary media playback is feasible; exact format support and legacy quirks have not been audited.",
+    "source": "https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/andor-1",
+    "series": "Standalone instruments and media"
+  }
+]
