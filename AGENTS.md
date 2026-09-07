@@ -1,5 +1,6 @@
 # RVX — project instructions
 
+- Use RVX as the project and plugin-suite name and `rvx-vcv-rack` as the repository name and directory. Preserve the actual names of referenced LZX products, VCV Rack, and third-party projects.
 - This project is in planning and research. Do not begin plugin implementation, scaffolding, prototype builds, or dependency installation until the user explicitly approves coding. Creating and maintaining this repository and its planning documents is authorized.
 - The user prefers close reproduction of LZX controls, ports and behavior, with analog video signal behavior preserved wherever practical. Record approximation limits explicitly.
 - Mac and bidirectional Syphon are required. Syphon selection should feel familiar to users of Rack audio device selection. Do not postpone Syphon beyond the first usable release.

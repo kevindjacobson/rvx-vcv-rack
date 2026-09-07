@@ -1,13 +1,15 @@
 **RVX**
 
-Analog video synthesis for VCV Rack on Mac. Repository name: `rvx-vcv-rack`.
+Analog video synthesis for VCV Rack on Mac.
+
+Use **RVX** as the project and plugin-suite name, and `rvx-vcv-rack` as the repository name and directory. VCV Rack is the host; LZX identifies the reference hardware.
 
 Planning a family of video synthesis modules with close fidelity to LZX controls and analog signal behavior, Memory Palace-style processing, simulated NTSC dirty mixing, and bidirectional Syphon I/O.
 
 Status: research and specification. Implementation has not started. The user requires a complete plan before coding and has authorized creating this local repository.
 
-- [System plan](VCV-Video-System-Plan.md): proposed architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, estimates and outstanding decisions.
-- [LZX feasibility inventory](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.
+- [RVX implementation plan](VCV-Video-System-Plan.md): proposed architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, estimates and outstanding decisions.
+- [RVX LZX feasibility review](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.
 - [Structured grades](research/grades.json): machine-readable assessment data.
 - [Project working instructions](AGENTS.md): planning boundary and documentation practices.
 

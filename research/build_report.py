@@ -121,7 +121,9 @@ extras=[
 ('Andor 1','A*','Media playback','Ordinary media playback is feasible; exact format support and legacy quirks have not been audited.','https://github.com/lzxindustries/lzxdocs/tree/master/static/pdf/andor-1')]
 for n,g,f,reason,source in extras:rows.append(dict(name=n,grade=g,function=f,reason=reason,source=source,series='Standalone instruments and media'))
 Path('research/grades.json').write_text(json.dumps(rows,indent=2))
-intro='''LZX → VCV Rack on Mac: module feasibility review
+intro='''**RVX — LZX module feasibility review**
+
+RVX is the project and plugin-suite name; `rvx-vcv-rack` is the repository name. This review assesses LZX hardware functions for RVX, an analog video synthesis system for VCV Rack on Mac. See the [RVX implementation plan](VCV-Video-System-Plan.md) for the proposed architecture and roadmap.
 
 Prepared September 7, 2026. This is a researched engineering assessment, not a completed port or a performance benchmark.
 

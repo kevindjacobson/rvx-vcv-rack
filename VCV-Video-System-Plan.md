@@ -1,12 +1,14 @@
 **RVX — implementation plan for review**
 
+RVX is the project and plugin-suite name. The repository is `rvx-vcv-rack`. RVX provides analog video synthesis for VCV Rack on Mac, using LZX hardware as the functional reference.
+
 September 7, 2026. Status: proposed design, awaiting user review. Research and documentation only; implementation, prototype builds, and dependency installation have not begun. Coding starts only after the user approves the plan.
 
-The companion [LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
+The companion [RVX LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
 
 **1. Intended outcome and scope**
 
-Build one Rack plugin package containing a family of interoperable video modules. It should support LZX-style signal patching, audio/CV modulation, frame feedback and painting, and simulated dirty NTSC mixing. Mac Syphon receiving and publishing are first-release requirements, with device-style selection familiar from Rack's audio modules.
+Build RVX as one Rack plugin package containing a family of interoperable video modules. It should support LZX-style signal patching, audio/CV modulation, frame feedback and painting, and simulated dirty NTSC mixing. Mac Syphon receiving and publishing are first-release requirements, with device-style selection familiar from Rack's audio modules.
 
 The complete first release must demonstrate this workflow:
 
@@ -18,7 +20,7 @@ The proposed first release includes the creative functions above. Broader LZX ca
 
 Confirmed design preference: reproduce LZX controls, ports and behavior as closely as practical, with video represented as analog signals wherever that affects patch behavior. Preserve control order, ranges, center points, normalizations and modulation response. Shared internal operators must not flatten meaningful differences between modules. Additional software settings belong in secondary controls so the primary panel remains familiar.
 
-Provisional platform defaults while machine details are pending: Apple Silicon, Rack 2 standalone and SD first. These are not inferred facts about the user's machine. Intel, Rack Pro in a DAW, and higher resolutions require separately named validation targets. The project name is RVX; the repository name is `rvx-vcv-rack`. Panel artwork and individual module naming remain design work; functional control fidelity is the confirmed priority.
+Provisional platform defaults while machine details are pending: Apple Silicon, Rack 2 standalone and SD first. These are not inferred facts about the user's machine. Intel, Rack Pro in a DAW, and higher resolutions require separately named validation targets. Panel artwork and individual module naming remain design work; functional control fidelity is the confirmed priority.
 
 **2. Existing work and reuse decision**
 

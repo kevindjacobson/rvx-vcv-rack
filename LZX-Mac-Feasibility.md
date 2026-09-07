@@ -1,4 +1,6 @@
-LZX → VCV Rack on Mac: module feasibility review
+**RVX — LZX module feasibility review**
+
+RVX is the project and plugin-suite name; `rvx-vcv-rack` is the repository name. This review assesses LZX hardware functions for RVX, an analog video synthesis system for VCV Rack on Mac. See the [RVX implementation plan](VCV-Video-System-Plan.md) for the proposed architecture and roadmap.
 
 Prepared September 7, 2026. This is a researched engineering assessment, not a completed port or a performance benchmark.
 
