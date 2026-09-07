@@ -439,16 +439,14 @@ void ModuleWidget::step() {
 
 VideoPort* ModuleWidget::addVideoInput(::rack::math::Vec position, int portId, PortType type) {
     VideoPort* port = ::rack::createInputCentered<VideoPort>(position, rvxModule_, portId);
-    if (rvxModule_)
-        port->bind(rvxModule_->node(), type, portId);
+    port->bind(rvxModule_ ? rvxModule_->node() : std::shared_ptr<Node>(), type, portId);
     addInput(port);
     return port;
 }
 
 VideoPort* ModuleWidget::addVideoOutput(::rack::math::Vec position, int portId, PortType type) {
     VideoPort* port = ::rack::createOutputCentered<VideoPort>(position, rvxModule_, portId);
-    if (rvxModule_)
-        port->bind(rvxModule_->node(), type, portId);
+    port->bind(rvxModule_ ? rvxModule_->node() : std::shared_ptr<Node>(), type, portId);
     addOutput(port);
     return port;
 }
