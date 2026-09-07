@@ -1,0 +1,19 @@
+# RVX prototype contract
+
+The user approved building issue #13 on September 7, 2026: “Let’s get building. Orchestrate a team”. This authorizes the six-module prototype, dependency setup and validation. It does not assert that the complete LZX release plan or its fidelity gates have passed. Issues #2–#9 remain open for their outstanding scope.
+
+Initial validation target observed locally: Apple M4, 16 GiB memory, macOS 26.2 (25C56), VCV Rack Pro 2.6.6 standalone, arm64. DAW compatibility is not inferred. SDK 2.6.6 mac-arm64 SHA-256: 29414e52417992cbafa47e30f947c3c0c7a34e5c424bb83c5a0af8c24840481f.
+
+Prototype defaults: 720 × 480, 30000/1001 image ticks/second. This is a progressive working canvas; it does not implement NTSC interlace, blanking or composite timing. Four-channel float encoded RGB with straight alpha, top-left origin; fields have one float per active raster position. Intermediate finite signals remain signed and unclipped; display/Syphon export converts explicitly. CPU arithmetic is the initial measurable reference backend; Syphon uses an owned GPU context/device. GPU processing remains an evaluated expansion, not an implemented claim.
+
+The six node kinds and typed ports are defined in src/core/Video.hpp. UI and native audio callbacks only capture topology/controls into RVX-owned state. The video worker owns processing, history and I/O; it never dereferences Rack module/cable pointers. Native video-port voltages are inert. UI cable snapshots preserve native wiring and Rack serialization. Acyclic nodes render within one tick. Delay outputs read previous state before all histories commit. Bypassed delay is a pass-through and therefore cannot break a cycle. Unpatched image inputs are black; unpatched field modulation is unity. Invalid connections yield empty input and diagnostics.
+
+Parameter contract (zero-based indices):
+- Test Image: 0 pattern (0 bars, 1 checker, 2 ramp, 3 raster phase probe), 1 phase speed in cycles/second.
+- Signal Processor: 0 gain A (default 1), 1 gain B (default 0), 2 offset (default 0), 3 mode (0 mix, 1 field-to-grayscale, 2 red, 3 green, 4 blue). Image out is unclipped pointwise A*gainA + B*gainB + offset, modulated by the field when connected. Field out extracts the named component; mix defaults to red extraction. Field-to-grayscale explicitly combines the field into RGB with alpha one. Alpha is preserved from A for mix and is not voltage gain-modulated.
+- CV Bridge: 0 mode (0 latched CV, 1 buffered audio-to-raster, 2 trigger field), 1 volts-to-field scale (default 0.1), 2 field offset. Rack audio/CV remain volts; default 10 V = 1 video unit. Capture short trigger edges as a counter, display each pending event for at least one tick. Audio producer timestamps are monotonic accumulated Rack sample time; resets increment epoch. Buffered raster conversion samples a documented completed audio interval with linear interpolation and one-tick buffering; no hardware genlock claim. Bound pending events, sample history and overflow policies.
+- Frame Delay: 0 clear button; native clear input port 1 captures rising gates independent of video rate. Clear/reset yields transparent black history before next feedback read.
+- Video Monitor: no processing controls; diagnostics only, shared engine continues without monitors.
+- Video I/O: settings saved as source identity/application/name, publisher name, enable, missing-source policy. Source selection belongs on the main UI; SDK operations belong on its worker. Publisher names must be unique by default across module instances.
+
+Shared interfaces are reviewable starting points. Any required change must be coordinated between engine, Rack adapter and Syphon workers before integration. Panel names are RVX prototype utilities, not claimed LZX emulations. Memory Palace and dirty NTSC remain explicit later requirements.

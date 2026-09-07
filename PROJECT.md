@@ -2,11 +2,11 @@
 
 RVX is the project and plugin-suite name; `rvx-vcv-rack` is the repository name and directory. VCV Rack is the host. LZX names identify the reference hardware; individual RVX module names and artwork have not been selected.
 
-The project is in research and specification. Plugin implementation has not started. The user requires a complete plan before coding and has authorized maintaining this repository and its planning documents.
+The user approved implementation of the six-module prototype in issue #13 on September 7, 2026. The prototype contract and observed validation target are recorded in [docs/PROTOTYPE.md](docs/PROTOTYPE.md). Full-release specifications and fidelity validation remain ongoing.
 
 Confirmed requirements are Mac support; close reproduction of LZX controls, ports and analog signal behavior; Memory Palace processing; NTSC and dirty mixing; and bidirectional Syphon with selection modeled on Rack audio I/O.
 
-Outstanding planning work includes target Mac/Rack details, first-release control/port sheets, reference revisions and fidelity criteria, and user review of the completed specification. Repository and documentation work does not authorize plugin implementation.
+Outstanding planning work includes target Mac/Rack details, first-release control/port sheets, reference revisions and fidelity criteria, and user review of the completed specification. The explicit prototype approval authorizes this bounded implementation; it does not establish full-release readiness.
 
 - [RVX implementation plan](VCV-Video-System-Plan.md): architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, effort estimates and outstanding decisions.
 - [RVX LZX feasibility review](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.

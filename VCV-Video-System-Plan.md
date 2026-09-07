@@ -2,7 +2,7 @@
 
 RVX is the project and plugin-suite name. The repository is `rvx-vcv-rack`. RVX provides analog video synthesis for VCV Rack on Mac, using LZX hardware as the functional reference.
 
-September 7, 2026. Status: proposed design, awaiting user review. Research and documentation only; implementation, prototype builds, and dependency installation have not begun. Coding starts only after the user approves the plan.
+September 7, 2026. Status: full-release design remains proposed. The user explicitly approved building the six-module prototype in issue #13; its implementation, dependency setup and validation are authorized. See [prototype contract](docs/PROTOTYPE.md) for the current experiment and observed target. Unrun acceptance gates remain unverified.
 
 The companion [RVX LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
 
@@ -172,7 +172,7 @@ For each module before its coding stage, produce a behavior sheet containing: so
 
 **10. Milestones and acceptance gates**
 
-All implementation milestones below occur after plan approval. A technical gate means testing a stated uncertainty; it does not authorize silently dropping a requested feature.
+The user has approved the bounded issue #13 prototype. Broader implementation milestones remain subject to the completed release plan and its approval. A technical gate means testing a stated uncertainty; it does not authorize silently dropping a requested feature.
 
 | Milestone | Deliverable | Exit criteria |
 |---|---|---|
@@ -224,4 +224,4 @@ This is a substantial graphics/audio application inside Rack. For one experience
 | Hardware fidelity reference | Functional equivalence until a specific reference is chosen | Named modules/firmware/receiver and available evidence |
 | Distribution | Private development builds initially | Public/commercial packaging and dependency choices can be decided before distribution |
 
-The architecture plan is reviewable now. Before requesting final permission to code, incorporate the target-Mac answer and finish the first-release behavior sheets, including a control/port table and representative patch for the memory and composite modules. Keep unresolved empirical questions attached to the explicit implementation gates above. Approval of this plan should never be represented as proof that those experiments have already passed.
+The architecture plan is reviewable now. For approval of the broader release scope, incorporate the target-Mac confirmation and finish the first-release behavior sheets, including a control/port table and representative patch for the memory and composite modules. Keep unresolved empirical questions attached to the explicit implementation gates above. Approval of this plan should never be represented as proof that those experiments have already passed.

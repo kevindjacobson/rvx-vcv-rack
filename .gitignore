@@ -10,3 +10,10 @@ research/inventory.json
 build/
 dist/
 *.vcvplugin
+
+# Prototype build artifacts and downloaded dependencies
+build/
+dist/
+dep/
+plugin.dylib
+.DS_Store
