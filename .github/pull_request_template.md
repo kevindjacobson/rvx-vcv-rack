@@ -22,10 +22,15 @@ Closes #<issue-number>
 
 <!-- Include relevant fidelity limits, dependencies or decisions needing review. Remove this section if none apply. -->
 
+**Independent review**
+
+<!-- Before readiness, provide the reviewer with the issue and acceptance criteria, base/head revisions, relevant files and test evidence. Use a separate reviewer agent with fork_turns none; do not provide the author's narrative as a substitute. State the reviewer identity/context, findings, resolutions and whether a second fresh review was required. -->
+
 - [ ] This PR contains one issue's deliverable and targets `main`.
 - [ ] The issue's acceptance criteria are satisfied and supported by the validation above.
 - [ ] The open-issue audit is current and affected assumptions, specifications and dependencies are reconciled.
 - [ ] Code quality and reuse have been reviewed alongside the delivered behavior, as applicable to this change.
 - [ ] The change respects the project's planning boundary; any plugin implementation has explicit user approval to begin coding.
+- [ ] A fresh independent reviewer assessed the issue, acceptance criteria, base/head, relevant files and test evidence before readiness; substantive fixes received another fresh review.
 
 <!-- Do not merge or enable auto-merge unless the user requests it. -->

@@ -26,6 +26,8 @@ title: ''
 
 <!-- Link the parent and any blocking issues; explain what must be resolved first. Write "None" if there are none. -->
 
+<!-- Use a separate worktree for this active issue. Independent issues may run in parallel only after dependency and shared-interface checks. Do not share mutable checkouts. -->
+
 **Assumptions and shared contracts**
 
 <!-- State each material assumption, its evidence/status, and affected interfaces or dependent issues. Update this section when an audit changes an assumption; do not treat an open PR as merged behavior. -->
@@ -37,3 +39,7 @@ title: ''
 **Work phase**
 
 <!-- State "Planning/research/documentation" or "Implementation". For implementation, identify the user's explicit coding approval or state "Blocked pending coding approval". Creating this issue does not authorize coding. -->
+
+**Worktree and review plan**
+
+<!-- Name the issue worktree and how a fresh independent review will be obtained. Before the PR is ready, the newly spawned reviewer must receive the issue/acceptance criteria, base/head revisions, relevant files and test evidence with no inherited author chat. -->
