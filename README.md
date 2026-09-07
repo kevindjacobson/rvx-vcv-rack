@@ -2,25 +2,47 @@
 
 **Installation**
 
-RVX is not yet available to install. No plugin release or source build is available.
+RVX is an experimental Mac prototype for Apple Silicon and VCV Rack 2.6.6. Build requirements: Apple Command Line Tools, Python 3.9 or later, and an internet connection for the pinned Rack SDK and Syphon sources.
+
+From this checkout:
+
+```sh
+make deps
+make -j4
+make test
+make test-syphon
+make dist
+make install
+```
+
+Restart Rack after installation. The installer retains any previous RVX folder under the Rack user folder's `rvx-backups` directory. `make dist` also creates a zip containing the RVX folder; it is not a `.vcvplugin` archive.
+
+To use an existing SDK, set `RACK_DIR` when invoking make, for example `make -j4 RACK_DIR=/path/to/Rack-SDK`. Build Syphon separately with `bash scripts/fetch-syphon.sh` if skipping `make deps`.
 
 **Quick start**
 
-A runnable quick start will be included with the first plugin release.
+1. Open an included patch from `examples/` in Rack, or add **RVX Test Image**, **Signal Processor**, and **Video Monitor** from the module browser.
+2. Connect Test Image's image output to Signal Processor's image input, then its image output to Video Monitor. Change gain and offset to process the image.
+3. Add **CV Bridge** to convert ordinary Rack CV/audio into a video field, then connect its field output to Signal Processor's field input.
+4. Add **Frame Delay** inside a feedback connection to give the loop one video tick of delay.
+5. Use **Video I/O** for Syphon. Right-click it to select an application/server, name the publisher, and enable output. Input and output can run together; audio uses a separate Rack Audio/Core Audio route.
+
+Video ports connect RVX modules. Ordinary audio/CV ports accept standard Rack signals. The monitor clips its preview to the display range; processing retains signed and above-range values.
 
 **Modules**
 
-No modules are available yet. The table lists proposed RVX modules and LZX reference designs.
+The six prototype modules are experimental utilities. Other rows list proposed modules and LZX reference designs; reference entries are not included emulations.
 
 | Module / reference design | Function | Availability |
 |---|---|---|
 | Video Engine / Settings | Video format, timing and resource settings | Unreleased |
-| Video Monitor | Image preview and signal monitoring | Unreleased |
-| Video I/O | Simultaneous Syphon input and output | Unreleased |
-| Test Image | Reference images and test patterns | Unreleased |
+| Video Monitor | Image preview and signal monitoring | Prototype |
+| Video I/O | Simultaneous Syphon input and output | Prototype |
+| Test Image | Reference images and test patterns | Prototype |
+| Signal Processor | Signed image mixing, gain/offset and field conversion | Prototype |
 | Component Split / Combine | Image and individual signal-field conversion | Unreleased |
-| CV Bridge | Rack audio/CV to video control conversion | Unreleased |
-| Frame Delay | Explicit frame delay and feedback storage | Unreleased |
+| CV Bridge | Rack audio/CV to video control conversion | Prototype |
+| Frame Delay | Explicit frame delay and feedback storage | Prototype |
 | Still Image Input | Still-image loading | Unreleased |
 | NTSC Encoder | Image-to-composite signal encoding | Unreleased |
 | Dirty Mixer | Composite signal mixing and distortion | Unreleased |

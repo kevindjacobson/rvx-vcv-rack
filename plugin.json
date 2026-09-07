@@ -1,7 +1,7 @@
 {
   "slug": "RVX",
   "name": "RVX",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "license": "proprietary",
   "brand": "RVX",
   "author": "RVX project",
@@ -17,37 +17,53 @@
       "slug": "TestImage",
       "name": "Test Image",
       "description": "Experimental image and field test patterns",
-      "tags": ["Visual"]
+      "tags": [
+        "Visual"
+      ]
     },
     {
       "slug": "SignalProcessor",
       "name": "Signal Processor",
       "description": "Experimental image mixing, offset, field modulation and component extraction",
-      "tags": ["Visual", "Mixer"]
+      "tags": [
+        "Visual",
+        "Mixer"
+      ]
     },
     {
       "slug": "CvBridge",
       "name": "CV Bridge",
       "description": "Bounded Rack CV, audio and trigger capture for the RVX video engine",
-      "tags": ["Visual", "Utility"]
+      "tags": [
+        "Visual",
+        "Utility"
+      ]
     },
     {
       "slug": "FrameDelay",
       "name": "Frame Delay",
       "description": "Explicit one-frame video delay and feedback state",
-      "tags": ["Visual", "Delay"]
+      "tags": [
+        "Visual",
+        "Delay"
+      ]
     },
     {
       "slug": "VideoMonitor",
       "name": "Video Monitor",
       "description": "Completed-frame preview and diagnostics",
-      "tags": ["Visual"]
+      "tags": [
+        "Visual"
+      ]
     },
     {
       "slug": "VideoIo",
       "name": "Video I/O",
       "description": "Simultaneous Syphon receive and publish controls",
-      "tags": ["Visual", "External"]
+      "tags": [
+        "Visual",
+        "External"
+      ]
     }
   ]
 }
