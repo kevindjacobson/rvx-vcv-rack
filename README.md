@@ -1,6 +1,6 @@
 **RVX**
 
-Analog video synthesis for VCV Rack on Mac. Repository name: `rvx`.
+Analog video synthesis for VCV Rack on Mac. Repository name: `rvx-vcv-rack`.
 
 Planning a family of video synthesis modules with close fidelity to LZX controls and analog signal behavior, Memory Palace-style processing, simulated NTSC dirty mixing, and bidirectional Syphon I/O.
 
