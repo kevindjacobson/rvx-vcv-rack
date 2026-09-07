@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime
 from pathlib import Path
 import shutil
+import tempfile
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -15,13 +16,23 @@ def main():
     parent = args.user_dir / "plugins-mac-arm64"
     parent.mkdir(parents=True, exist_ok=True)
     target = parent / "RVX"
-    if target.exists():
-        backup_root = args.user_dir / "rvx-backups"
-        backup_root.mkdir(exist_ok=True)
-        backup = backup_root / datetime.now().strftime("RVX-%Y%m%d-%H%M%S-%f")
-        target.rename(backup)
-        print(f"Retained previous installation: {backup}")
-    shutil.copytree(args.source, target)
+    with tempfile.TemporaryDirectory(prefix=".rvx-stage-", dir=parent) as temp:
+        staged = Path(temp) / "RVX"
+        shutil.copytree(args.source, staged)
+        backup = None
+        if target.exists():
+            backup_root = args.user_dir / "rvx-backups"
+            backup_root.mkdir(exist_ok=True)
+            backup = backup_root / datetime.now().strftime("RVX-%Y%m%d-%H%M%S-%f")
+            target.rename(backup)
+        try:
+            staged.rename(target)
+        except OSError:
+            if backup is not None:
+                backup.rename(target)
+            raise
+        if backup is not None:
+            print(f"Retained previous installation: {backup}")
     print(f"Installed {target}; restart Rack to load this version.")
 
 if __name__ == "__main__":

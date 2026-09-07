@@ -8,6 +8,8 @@ import tempfile
 
 root = Path(__file__).resolve().parent.parent
 manifest = json.loads((root / "plugin.json").read_text())
+if not (root / "licenses/Syphon.txt").is_file():
+    raise SystemExit("Syphon redistribution notice is required before packaging")
 dist = root / "dist"
 dist.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix="rvx-package-") as temp:

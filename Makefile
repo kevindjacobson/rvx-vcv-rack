@@ -14,8 +14,8 @@ OBJECTS := $(patsubst %.cpp,build/%.o,$(CPP_SOURCES)) $(patsubst %.mm,build/%.o,
 all: plugin.dylib
 
 deps:
-	python3 scripts/fetch-rack-sdk.py
-	python3 scripts/fetch-syphon.py
+	@test -f "$(RACK_DIR)/include/rack.hpp" || python3 scripts/fetch-rack-sdk.py
+	bash scripts/fetch-syphon.sh
 
 check-sdk:
 	@test -f "$(RACK_DIR)/include/rack.hpp" || (echo "Set RACK_DIR to Rack SDK 2.6.6 or run make deps"; exit 1)
@@ -29,7 +29,7 @@ build/%.o: %.mm | check-sdk
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fobjc-arc -fblocks -DGL_SILENCE_DEPRECATION -MMD -MP -c $< -o $@
 
 plugin.dylib: $(OBJECTS) $(SYPHON_LIB)
-	$(CXX) -dynamiclib -arch arm64 -mmacosx-version-min=11.0 -undefined dynamic_lookup -L"$(RACK_DIR)" -lRack $(OBJECTS) $(SYPHON_LIB) $(FRAMEWORKS) -o $@
+	$(CXX) -dynamiclib -arch arm64 -mmacosx-version-min=11.0 -undefined dynamic_lookup -L"$(RACK_DIR)" -lRack $(OBJECTS) -Wl,-force_load,"$(SYPHON_LIB)" $(FRAMEWORKS) -o $@
 	install_name_tool -change libRack.dylib /tmp/Rack2/libRack.dylib $@
 	codesign --force --sign - $@
 
@@ -50,7 +50,7 @@ benchmark: build/benchmark
 # Syphon test is wired to the same backend and pinned library as the plugin.
 build/syphon-test: src/io/SyphonBackend.mm tests/syphon_test.mm $(SYPHON_LIB)
 	@mkdir -p build
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fobjc-arc -fblocks -DGL_SILENCE_DEPRECATION src/io/SyphonBackend.mm tests/syphon_test.mm $(SYPHON_LIB) $(FRAMEWORKS) -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -fobjc-arc -fblocks -DGL_SILENCE_DEPRECATION src/io/SyphonBackend.mm tests/syphon_test.mm -Wl,-force_load,"$(SYPHON_LIB)" $(FRAMEWORKS) -o $@
 
 test-syphon: build/syphon-test
 	./build/syphon-test
