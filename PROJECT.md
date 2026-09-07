@@ -2,6 +2,8 @@
 
 RVX is the project and plugin-suite name; `rvx-vcv-rack` is the repository name and directory. VCV Rack is the host. LZX names identify the reference hardware; individual RVX module names and artwork have not been selected.
 
+The GitHub repository is [kevindjacobson/rvx-vcv-rack](https://github.com/kevindjacobson/rvx-vcv-rack). It was created with private visibility. Use the [issue-to-PR workflow](CONTRIBUTING.md) for each focused deliverable. The [planning milestone](https://github.com/kevindjacobson/rvx-vcv-rack/milestone/1) tracks the remaining pre-code specifications and their integration for user review.
+
 The project is in research and specification. Plugin implementation has not started. The user requires a complete plan before coding and has authorized maintaining this repository and its planning documents.
 
 Confirmed requirements are Mac support; close reproduction of LZX controls, ports and analog signal behavior; Memory Palace processing; NTSC and dirty mixing; and bidirectional Syphon with selection modeled on Rack audio I/O.
@@ -12,6 +14,7 @@ Outstanding planning work includes target Mac/Rack details, first-release contro
 - [RVX LZX feasibility review](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.
 - [Structured grades](research/grades.json): machine-readable assessment data.
 - [Project working instructions](AGENTS.md): planning boundary and documentation practices.
+- [Contribution workflow](CONTRIBUTING.md): one issue, branch and PR per deliverable; review, validation and merge handling.
 
 README.md is user documentation: installation, quick start and a module table only. Keep project history, design decisions, research procedures and approval state in this document or the implementation plan. Until a runnable release exists, its installation and quick-start sections state availability honestly rather than describe unverified commands or controls.
 
