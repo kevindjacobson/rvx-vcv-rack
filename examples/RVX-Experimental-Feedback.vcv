@@ -1,0 +1,56 @@
+{
+  "version": "2.6.6",
+  "zoom": 0.0,
+  "modules": [
+    {
+      "id": 200,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "0.0.1",
+      "params": [
+        {"id": 0, "value": 3.0},
+        {"id": 1, "value": 0.125}
+      ],
+      "data": {"rvxSchema": 1},
+      "pos": [0, 0]
+    },
+    {
+      "id": 201,
+      "plugin": "RVX",
+      "model": "SignalProcessor",
+      "version": "0.0.1",
+      "params": [
+        {"id": 0, "value": 0.78},
+        {"id": 1, "value": 0.22},
+        {"id": 2, "value": 0.0},
+        {"id": 3, "value": 0.0}
+      ],
+      "data": {"rvxSchema": 1},
+      "pos": [12, 0]
+    },
+    {
+      "id": 202,
+      "plugin": "RVX",
+      "model": "FrameDelay",
+      "version": "0.0.1",
+      "params": [{"id": 0, "value": 0.0}],
+      "data": {"rvxSchema": 1},
+      "pos": [28, 0]
+    },
+    {
+      "id": 203,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "0.0.1",
+      "params": [],
+      "data": {"rvxSchema": 1},
+      "pos": [38, 0]
+    }
+  ],
+  "cables": [
+    {"id": 2000, "outputModuleId": 200, "outputId": 0, "inputModuleId": 201, "inputId": 0, "color": "#4dc9ff"},
+    {"id": 2001, "outputModuleId": 202, "outputId": 0, "inputModuleId": 201, "inputId": 1, "color": "#ff5ac2"},
+    {"id": 2002, "outputModuleId": 201, "outputId": 0, "inputModuleId": 202, "inputId": 0, "color": "#4dc9ff"},
+    {"id": 2003, "outputModuleId": 202, "outputId": 0, "inputModuleId": 203, "inputId": 0, "color": "#ff5ac2"}
+  ]
+}
