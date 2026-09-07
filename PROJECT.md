@@ -8,6 +8,8 @@ Confirmed requirements are Mac support; close reproduction of LZX controls, port
 
 Source code is a first-class deliverable. The [engineering review policy](ENGINEERING.md) requires maintainable, reusable implementations and an audit of every open issue before work, before PR readiness/merge, and after each merge. Assumptions, shared contracts, evidence and dependencies must stay consistent as the project evolves. GitHub issue/PR history holds each audit record; README remains user documentation. The repository remains private until the user requests otherwise.
 
+Use separate issue worktrees and parallel workers for independent work. Orchestration uses Ultra; routine writing tasks may use cheaper models/lower effort. Every PR receives a newly spawned independent reviewer with no inherited author conversation before readiness. The engineering policy defines the context supplied to reviewers, escalation and integration rules.
+
 Outstanding planning work includes target Mac/Rack details, first-release control/port sheets, reference revisions and fidelity criteria, and user review of the completed specification. Repository and documentation work does not authorize plugin implementation.
 
 - [RVX implementation plan](VCV-Video-System-Plan.md): architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, effort estimates and outstanding decisions.

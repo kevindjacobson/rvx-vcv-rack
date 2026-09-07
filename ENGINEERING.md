@@ -12,12 +12,30 @@ Audit every open issue before starting a work item, before its PR becomes ready,
 2. Review each issue's assumptions, scope, acceptance criteria, evidence and dependencies against current requirements and the actual code/specifications. Check all open issues; inspect affected contracts and dependent work in depth. A title-only scan is insufficient. An unresolved assumption remains unresolved until evidence settles it.
 3. Identify contradictions, duplicated work, invalidated assumptions, newly satisfied prerequisites, obsolete tasks and opportunities to share existing code. Trace a changed signal, timing, memory or API contract through every affected module and issue.
 4. Correct affected issue bodies, criteria and dependencies, and link the evidence or decision that changed them. Update the authoritative specification in the same PR, or create a focused follow-up issue when additional repository work is needed. Mark proposed updates as contingent on the PR until it merges. Do not silently lower acceptance criteria to match incomplete implementation.
-5. Stop dependent work when a required assumption is invalid or unverified. State the missing evidence or decision in the issue. Keep independent work moving. Split, supersede or close obsolete issues only when the evidence supports that action; preserve links to their replacements.
+5. Stop work that would treat an invalid or unverified prerequisite as established. State the missing evidence or decision in the issue. Authorized research or validation specifically intended to resolve that uncertainty can proceed; an empirical proof gate must not be mistaken for an already-satisfied prerequisite. Keep independent work moving. Split, supersede or close obsolete issues only when the evidence supports that action; preserve links to their replacements.
 6. After merge, audit against the resulting default-branch commit, verify issue closure, reconcile affected open PRs, and update dependency/parent progress. Read the actual merged result, including any integration changes. Finish this reconciliation before starting the next item.
 
 Maintain one concise audit record in the working issue or PR. Include date, base and change revisions, the issues reviewed, findings, issue/specification updates, unresolved questions and follow-ups. Record an explicit no-change result when appropriate. After merge, append the new baseline and results to the merged PR or its issue. Avoid repetitive comments on unaffected issues.
 
 Issues should identify assumptions and their source/status. PRs should include an **Issue consistency audit** section with the audit record or a link to it. An audit is evidence from a specific revision, not a permanent guarantee. Recheck if the base or substantive proposal changes before merge.
+
+**Worktrees, parallel work and orchestration**
+
+Give every active issue its own Git branch and worktree. Keep the main checkout stable and use `issue-<number>-<slug>` for the issue branch. Place worktrees alongside the repository, for example under `../rvx-vcv-rack-worktrees/`. Record the issue, branch, worktree and owned files in the worker assignment. Never switch another worker's branch, share its mutable checkout, or overwrite its uncommitted changes. Remove a worktree only when its work is preserved and no agent is using it.
+
+Run issues in parallel when their prerequisites and interfaces permit independent changes. The orchestrator checks dependencies and file/contract overlap first, assigns bounded work, and coordinates integration. Agree shared contracts before consumers rely on them; proposed interfaces stay provisional. If concurrent work changes a common contract, reconcile the affected issues and workers before continuing dependent work. Each issue retains its own reviewable PR. An explicitly dependent PR remains draft until its prerequisite lands and it is checked against the resulting base.
+
+Use Ultra reasoning for orchestration: scope, dependencies, architecture, integration, consistency audits and final readiness decisions. Routine implementation workers may use a cheaper available model and lower reasoning effort for well-specified tasks. Increase capability/effort when ambiguity, numerical fidelity, concurrency or resource ownership requires it. Model cost never changes acceptance or review criteria. Record assignments in the issue/PR when useful; do not imply that model selection guarantees correctness.
+
+**Fresh independent review**
+
+Before a PR is ready, always spawn a new reviewer agent with no inherited conversation history (`fork_turns: "none"`). The writer cannot serve as that reviewer. Supply the issue and acceptance criteria, applicable project instructions, exact base/head revisions, changed files, relevant implementation/specifications, and commands/results or artifacts from validation. Give access to surrounding code and dependencies as needed. Exclude the author's chat history, self-assessment and persuasive rationale; the reviewer should establish findings from the requirements and repository evidence.
+
+Ask the reviewer to look for correctness and regression risks, inconsistent assumptions, unnecessary duplication or coupling, unclear interfaces, lifecycle/resource problems, fidelity deviations and missing meaningful validation. Use an appropriately capable reviewer; any savings on writing workers do not reduce review depth. For documentation changes, review requirements, source support, consistency and links instead of claiming runtime validation.
+
+Record the review agent, reviewed revisions, findings and their resolution in the PR, including an explicit result when no actionable findings remain. Fix findings in the issue worktree. Substantive fixes or integration changes require another newly spawned reviewer without inherited history. Supply current requirements and changed evidence to that fresh reviewer; verify prior findings separately so their resolution is not lost. Purely mechanical edits can use a targeted recheck, but any doubt about behavior, contracts or acceptance criteria requires fresh review. Re-run appropriate checks after fixes.
+
+Independent review informs readiness; it does not authorize merging or plugin coding. The orchestrator reconciles the review with the current issue audit and the actual diff before presenting the PR. Re-audit after merge as described above.
 
 **Review source code as a deliverable**
 
@@ -38,6 +56,6 @@ Each issue should describe its reuse implications. Each implementation PR should
 
 **Ready to merge and complete**
 
-A PR is ready when its issue criteria, behavior, relevant validation, code-quality review and pre-merge issue audit are satisfied. Remaining defects or invalid assumptions must be fixed or explicitly reflected in scope and follow-up issues; recording a follow-up is not permission to omit required behavior. After an authorized merge, the task remains in reconciliation until the post-merge audit and affected issue updates are complete.
+A PR is ready when its issue criteria, behavior, relevant validation, fresh independent review, code-quality assessment and pre-merge issue audit are satisfied. Remaining defects or invalid assumptions must be fixed or explicitly reflected in scope and follow-up issues; recording a follow-up is not permission to omit required behavior. After an authorized merge, the task remains in reconciliation until the post-merge audit and affected issue updates are complete.
 
 Keep user-facing installation, quick start and module availability in README.md. Store engineering decisions in specifications and project documents, and keep audit history with the corresponding GitHub issue/PR.
