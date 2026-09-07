@@ -274,6 +274,11 @@ Module::~Module() {
 }
 
 void Module::process(const ProcessArgs& args) {
+    if (lastRackFrame_ >= 0 && args.frame != lastRackFrame_ + 1) {
+        ++audioEpoch_;
+        incrementTrigger(node_->resets);
+    }
+    lastRackFrame_ = args.frame;
     for (size_t i = 0; i < params.size() && i < node_->params.size(); ++i)
         node_->params[i].store(params[i].getValue(), std::memory_order_relaxed);
     capture(args);
@@ -338,6 +343,7 @@ void Module::onSampleRateChange(const SampleRateChangeEvent& e) {
     // epoch. The renderer discards buffered samples from earlier epochs and
     // establishes a fresh audio-to-video time mapping from the first new one.
     ++audioEpoch_;
+    lastRackFrame_ = -1;
     incrementTrigger(node_->resets);
 }
 
@@ -355,6 +361,7 @@ void Module::onReset(const ResetEvent& e) {
     ::rack::engine::Module::onReset(e);
     incrementTrigger(node_->resets);
     ++audioEpoch_;
+    lastRackFrame_ = -1;
 }
 
 json_t* Module::dataToJson() {
@@ -371,6 +378,7 @@ void Module::dataFromJson(json_t* rootJ) {
         schema = static_cast<int>(json_integer_value(schemaJ));
     readData(rootJ, schema);
     ++audioEpoch_;
+    lastRackFrame_ = -1;
     incrementTrigger(node_->resets);
 }
 

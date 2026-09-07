@@ -97,6 +97,7 @@ protected:
     rack::engine::Engine* context_ = NULL;
     double audioSeconds_ = 0.0;
     uint64_t audioEpoch_ = 0;
+    int64_t lastRackFrame_ = -1;
 };
 
 // This subclass tags only suite-owned video-domain ports. Its pointer is read
