@@ -6,6 +6,8 @@ The project is in research and specification. Plugin implementation has not star
 
 Confirmed requirements are Mac support; close reproduction of LZX controls, ports and analog signal behavior; Memory Palace processing; NTSC and dirty mixing; and bidirectional Syphon with selection modeled on Rack audio I/O.
 
+Source code is a first-class deliverable. The [engineering review policy](ENGINEERING.md) requires maintainable, reusable implementations and an audit of every open issue before work, before PR readiness/merge, and after each merge. Assumptions, shared contracts, evidence and dependencies must stay consistent as the project evolves. GitHub issue/PR history holds each audit record; README remains user documentation. The repository remains private until the user requests otherwise.
+
 Outstanding planning work includes target Mac/Rack details, first-release control/port sheets, reference revisions and fidelity criteria, and user review of the completed specification. Repository and documentation work does not authorize plugin implementation.
 
 - [RVX implementation plan](VCV-Video-System-Plan.md): architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, effort estimates and outstanding decisions.

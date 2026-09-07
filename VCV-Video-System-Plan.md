@@ -39,7 +39,7 @@ There is useful precedent, but the research did not identify a complete publicly
 
 Recommendation: own the Rack adapter, video graph, timing, and signal model. Reuse a suitable rendering library and the Syphon SDK after compatibility checks. Keep NTSC algorithms behind a narrow interface so using Rust or translating selected algorithms does not dictate the whole engine. ISF's documented [persistent buffers and multiple passes](https://docs.isf.video/ref_multipass) are useful building blocks for effects with memory; they do not specify our complete patch graph or hardware matching.
 
-Record exact dependency revisions and applicable licenses when selecting code. No contacting authors, joining private betas, or publishing a project is part of the current planning work.
+Record exact dependency revisions and applicable licenses when selecting code. The user has authorized the private GitHub repository and its issue/PR workflow. Contacting external authors, joining private betas and making the repository public require a separate request.
 
 **3. Signal model and patching**
 
@@ -65,6 +65,8 @@ Analog fidelity is a core architectural requirement. A scalar video field repres
 Use inexpensive pointwise GPU processing where it preserves the specified behavior, and ordered raster processing for stateful analog behavior. Image sampling/interpolation and waveform resampling are different operations. Timing metadata must survive conversion between them. The earliest engine proof must include a small raster-state calibration path, so later analog modules do not require replacing an image-only foundation.
 
 **4. Shared engine and concurrency**
+
+Code structure and reuse are deliverables alongside the running instrument. Follow the [engineering review policy](ENGINEERING.md) for shared contracts, algorithm/UI separation, validation and maintainability. Every component specification must identify existing primitives it can reuse, its consumers and any behavior that requires a distinct implementation. Validate common operators across their consumers; do not erase LZX module differences to simplify an abstraction.
 
 One engine instance belongs to one Rack patch/context. Avoid an unrestricted process-wide singleton: multiple instances, especially in a future DAW target, must not exchange resources accidentally.
 
@@ -173,6 +175,8 @@ For each module before its coding stage, produce a behavior sheet containing: so
 **10. Milestones and acceptance gates**
 
 All implementation milestones below occur after plan approval. A technical gate means testing a stated uncertainty; it does not authorize silently dropping a requested feature.
+
+Every work item also follows the issue consistency and code-quality review in [ENGINEERING.md](ENGINEERING.md). Audit all open issues before work, before PR readiness/merge and after each merge. Reconcile changed assumptions, interfaces, evidence, acceptance criteria and dependencies; record the reviewed revisions. Each milestone's exit criteria include the quality of its source code and shared contracts as well as visible behavior and performance.
 
 | Milestone | Deliverable | Exit criteria |
 |---|---|---|
