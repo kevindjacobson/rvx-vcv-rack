@@ -1,4 +1,6 @@
-**VCV Rack video system for Mac**
+**Raster Voltage**
+
+Analog video synthesis for VCV Rack on Mac. Repository name: `raster-voltage`.
 
 Planning a family of video synthesis modules with close fidelity to LZX controls and analog signal behavior, Memory Palace-style processing, simulated NTSC dirty mixing, and bidirectional Syphon I/O.
 
@@ -15,4 +17,4 @@ Outstanding planning work: target Mac/Rack details, first-release control/port s
 
 The research Python files are existing documentation utilities, not plugin implementation. Downloaded source-text snapshots and the raw inventory cache stay local and are ignored by Git. The report generator currently requires the local `research/inventory.json` input; it can be fetched with `research/inventory.py`, but live source changes can affect the inventory and must be reviewed before regenerating the report. Run research utilities from the repository root.
 
-This is an independent planning project. LZX names identify reference products; final naming and artwork have not been selected.
+This is an independent planning project. LZX names identify reference products; individual module names and artwork have not been selected.

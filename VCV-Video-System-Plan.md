@@ -1,4 +1,4 @@
-**VCV Rack video system for Mac — implementation plan for review**
+**Raster Voltage — implementation plan for review**
 
 September 7, 2026. Status: proposed design, awaiting user review. Research and documentation only; implementation, prototype builds, and dependency installation have not begun. Coding starts only after the user approves the plan.
 
@@ -18,7 +18,7 @@ The proposed first release includes the creative functions above. Broader LZX ca
 
 Confirmed design preference: reproduce LZX controls, ports and behavior as closely as practical, with video represented as analog signals wherever that affects patch behavior. Preserve control order, ranges, center points, normalizations and modulation response. Shared internal operators must not flatten meaningful differences between modules. Additional software settings belong in secondary controls so the primary panel remains familiar.
 
-Provisional platform defaults while machine details are pending: Apple Silicon, Rack 2 standalone and SD first. These are not inferred facts about the user's machine. Intel, Rack Pro in a DAW, and higher resolutions require separately named validation targets. Panel artwork and final product naming remain design work; functional control fidelity is the confirmed priority.
+Provisional platform defaults while machine details are pending: Apple Silicon, Rack 2 standalone and SD first. These are not inferred facts about the user's machine. Intel, Rack Pro in a DAW, and higher resolutions require separately named validation targets. The project/repository name is Raster Voltage (`raster-voltage`). Panel artwork and individual module naming remain design work; functional control fidelity is the confirmed priority.
 
 **2. Existing work and reuse decision**
 
