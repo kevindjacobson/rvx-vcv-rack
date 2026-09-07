@@ -124,6 +124,34 @@ void testRasterPhaseOrdering() {
     NEAR(second->pixels.front() - first->pixels.back(), step, 1e-6f);
 }
 
+void testPhaseSpeedAllPatterns() {
+    const Format format{8, 2, 2, 1};
+    for (int pattern = 0; pattern < 4; ++pattern) {
+        auto source = std::make_shared<Node>(Kind::TestImage);
+        source->params[0].store(static_cast<float>(pattern));
+        source->params[1].store(1.f);
+        Renderer renderer;
+        Graph graph{{source}, {}, 1};
+        renderer.render(graph, format, 0, 0);
+        const auto initial = source->display()->outputs[0]->pixels;
+        renderer.render(graph, format, 1, .5);
+        CHECK(source->display()->outputs[0]->pixels != initial);
+
+        source->resets.fetch_add(1);
+        renderer.render(graph, format, 2, .75);
+        const auto reset = source->display()->outputs[0]->pixels;
+        CHECK(reset == initial);
+        source->params[1].store(0.f);
+        renderer.render(graph, format, 3, 1.0);
+        const auto stopped = source->display()->outputs[0]->pixels;
+        renderer.render(graph, format, 4, 1.25);
+        CHECK(source->display()->outputs[0]->pixels == stopped);
+        source->params[1].store(-1.f);
+        renderer.render(graph, format, 5, 1.5);
+        CHECK(source->display()->outputs[0]->pixels != stopped);
+    }
+}
+
 void testInvalidEdgesFormatsAndCycles() {
     Format format{2, 2, 30, 1};
     auto processor = std::make_shared<Node>(Kind::Processor);
@@ -278,6 +306,88 @@ void testCvAudioEpochAndTriggers() {
     bridge->triggers.fetch_add(5000);
     renderer.render(graph, format, 30, 3.0);
     CHECK(bridge->display()->status.find("trigger overflow") != std::string::npos);
+
+    bridge->triggers.store(3);
+    renderer.render(graph, format, 31, 3.1);
+    NEAR(bridge->display()->outputs[0]->pixels[0], 1.f, 0.f);
+    bridge->resets.store(1);
+    renderer.render(graph, format, 32, 3.2);
+    NEAR(bridge->display()->outputs[0]->pixels[0], 0.f, 0.f);
+    CHECK(bridge->resets.load() == 0);
+    renderer.render(graph, format, 33, 3.3);
+    NEAR(bridge->display()->outputs[0]->pixels[0], 0.f, 0.f);
+
+    bridge->triggers.store(3);
+    renderer.render(graph, format, 34, 3.4); // leaves two pending events
+    CHECK(bridge->audio.push({0.0, 1.f, 6}));
+    renderer.render(graph, format, 35, 3.5); // new audio epoch clears stale triggers
+    NEAR(bridge->display()->outputs[0]->pixels[0], 0.f, 0.f);
+}
+
+void testCvBypassAndAudioOverflow() {
+    Format format{2, 1, 30, 1};
+    auto bridge = std::make_shared<Node>(Kind::CvBridge);
+    bridge->params[0].store(2.f);
+    Renderer renderer;
+    Graph graph{{bridge}, {}, 1};
+    bridge->triggers.store(3);
+    renderer.render(graph, format, 0, 0);
+    NEAR(bridge->display()->outputs[0]->pixels[0], 1.f, 0.f);
+    bridge->bypass.store(true);
+    bridge->triggers.fetch_add(2);
+    CHECK(bridge->audio.push({0.0, 5.f, 1}));
+    renderer.render(graph, format, 1, 1.0 / 30.0);
+    NEAR(bridge->display()->outputs[0]->pixels[0], 0.f, 0.f);
+    CHECK(bridge->display()->status.find("bypassed") != std::string::npos);
+    bridge->bypass.store(false);
+    renderer.render(graph, format, 2, 2.0 / 30.0);
+    NEAR(bridge->display()->outputs[0]->pixels[0], 0.f, 0.f);
+
+    auto overflow = std::make_shared<Node>(Kind::CvBridge);
+    overflow->params[0].store(1.f);
+    for (int i = 0; i < 32770; ++i)
+        overflow->audio.push({i / 48000.0, 1.f, 1});
+    renderer.render(Graph{{overflow}, {}, 2}, format, 3, 0.1);
+    CHECK(overflow->audio.dropped.load() == 3);
+    CHECK(overflow->display()->status.find("audio queue dropped 3") != std::string::npos);
+    renderer.render(Graph{{overflow}, {}, 2}, format, 4, 0.2);
+    CHECK(overflow->display()->status.find("audio queue dropped 3") != std::string::npos);
+}
+
+void testImageNodeBypass() {
+    Format format{2, 1, 30, 1};
+    auto source = std::make_shared<Node>(Kind::TestImage);
+    auto processor = std::make_shared<Node>(Kind::Processor);
+    auto delay = std::make_shared<Node>(Kind::Delay);
+    auto monitor = std::make_shared<Node>(Kind::Monitor);
+    source->params[0].store(2.f);
+    processor->params[0].store(9.f);
+    processor->params[2].store(4.f);
+    processor->params[3].store(2.f);
+    processor->bypass.store(true);
+    monitor->bypass.store(true);
+    Graph graph{{source, processor, delay, monitor},
+                {connect(source, 0, processor, 0), connect(source, 0, delay, 0),
+                 connect(processor, 0, monitor, 0)}, 1};
+    Renderer renderer;
+    auto report = renderer.render(graph, format, 0, 0);
+    CHECK(report.errors == 0);
+    NEAR(pixel(processor->display()->outputs[0], 1, 0, 0), 1.f, 0.f);
+    NEAR(pixel(processor->display()->outputs[1], 1, 0), 1.f, 0.f);
+    CHECK(processor->display()->status.find("bypassed") != std::string::npos);
+    for (float value : monitor->display()->preview->pixels) NEAR(value, 0.f, 0.f);
+    CHECK(monitor->display()->status.find("bypassed") != std::string::npos);
+
+    delay->bypass.store(true);
+    renderer.render(graph, format, 1, 1.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 1, 0, 0), 1.f, 0.f);
+    CHECK(delay->display()->status.find("bypassed") != std::string::npos);
+
+    source->bypass.store(true);
+    renderer.render(graph, format, 2, 2.0 / 30.0);
+    for (float value : source->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+    for (float value : source->display()->outputs[1]->pixels) NEAR(value, 0.f, 0.f);
+    CHECK(source->display()->status.find("bypassed") != std::string::npos);
 }
 
 struct BackendState {
@@ -286,6 +396,8 @@ struct BackendState {
     bool returnFrame = true;
     int receives = 0;
     int publishes = 0;
+    bool lastPublishEnabled = false;
+    bool lastPublishHadFrame = false;
 };
 
 class FakeBackend : public VideoBackend {
@@ -296,8 +408,10 @@ public:
         ++state->receives;
         return state->returnFrame ? state->incoming : FramePtr{};
     }
-    void publish(const IoSettings&, FramePtr frame) override {
+    void publish(const IoSettings& settings, FramePtr frame) override {
         ++state->publishes;
+        state->lastPublishEnabled = settings.publish;
+        state->lastPublishHadFrame = frame != nullptr;
         state->published = std::move(frame);
     }
     std::string status() const override { return "ready"; }
@@ -334,15 +448,26 @@ void testBackendBoundaryAndHold() {
     NEAR(pixel(state->published, 0, 0, 2), 1.f, 0.f);
     CHECK(io->display()->sources.size() == 1 && io->display()->status == "ready");
 
-    state->returnFrame = false;
+    const int receivesBeforeBypass = state->receives;
+    const int publishesBeforeBypass = state->publishes;
+    io->bypass.store(true);
     renderer.render(graph, format, 1, 1.0 / 30.0);
+    CHECK(state->receives == receivesBeforeBypass);
+    CHECK(state->publishes == publishesBeforeBypass + 1);
+    CHECK(!state->lastPublishEnabled && !state->lastPublishHadFrame);
+    for (float value : io->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+    CHECK(io->display()->status.find("bypassed") != std::string::npos);
+    io->bypass.store(false);
+
+    state->returnFrame = false;
+    renderer.render(graph, format, 2, 2.0 / 30.0);
     NEAR(pixel(io->display()->outputs[0], 0, 0, 0), -.5f, 0.f);
-    renderer.render(graph, Format{4, 1, 30, 1}, 2, 2.0 / 30.0);
+    renderer.render(graph, Format{4, 1, 30, 1}, 3, 3.0 / 30.0);
     CHECK(io->display()->outputs[0]->width == 4);
     for (float value : io->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
     settings.holdLast = false;
     io->setIoSettings(settings);
-    renderer.render(graph, format, 3, 3.0 / 30.0);
+    renderer.render(graph, format, 4, 4.0 / 30.0);
     NEAR(pixel(io->display()->outputs[0], 0, 0, 0), 0.f, 0.f);
 }
 
@@ -428,10 +553,13 @@ int main() {
     testTypesDefaultsAndQueue();
     testPatternsProcessorAndConversion();
     testRasterPhaseOrdering();
+    testPhaseSpeedAllPatterns();
     testInvalidEdgesFormatsAndCycles();
     testDelayReadCommitClearAndCleanup();
     testFormatChangeClearsRasterState();
     testCvAudioEpochAndTriggers();
+    testCvBypassAndAudioOverflow();
+    testImageNodeBypass();
     testBackendBoundaryAndHold();
     testBackendWorkerLifetime();
     testEngineIndependentClock();

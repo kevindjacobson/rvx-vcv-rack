@@ -258,6 +258,7 @@ void Node::publishDisplay(std::shared_ptr<const NodeDisplay> value) {
 struct Renderer::Impl {
     struct Binding { size_t source = 0; int output = 0; bool connected = false; };
     struct DelayState { FramePtr history; bool clearPressed = false; };
+    struct TestState { double phase = 0; double lastSeconds = 0; bool haveTime = false; };
     struct CvState {
         std::deque<AudioSample> samples;
         uint64_t epoch = 0;
@@ -274,6 +275,7 @@ struct Renderer::Impl {
 
     VideoBackendFactory factory;
     std::unordered_map<uint64_t, DelayState> delays;
+    std::unordered_map<uint64_t, TestState> tests;
     std::unordered_map<uint64_t, CvState> bridges;
     std::unordered_map<uint64_t, IoState> io;
     Format activeFormat;
@@ -285,6 +287,7 @@ struct Renderer::Impl {
             activeFormat.rateDenominator == format.rateDenominator)
             return;
         delays.clear();
+        tests.clear();
         bridges.clear();
         for (auto& item : io) item.second.lastReceived.reset();
         activeFormat = format;
@@ -294,6 +297,8 @@ struct Renderer::Impl {
     void cleanup(const std::unordered_set<uint64_t>& live) {
         for (auto it = delays.begin(); it != delays.end();)
             it = live.count(it->first) ? std::next(it) : delays.erase(it);
+        for (auto it = tests.begin(); it != tests.end();)
+            it = live.count(it->first) ? std::next(it) : tests.erase(it);
         for (auto it = bridges.begin(); it != bridges.end();)
             it = live.count(it->first) ? std::next(it) : bridges.erase(it);
         for (auto it = io.begin(); it != io.end();)
@@ -356,6 +361,9 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             ++report.errors;
         }
     }
+    std::vector<bool> bypassed(count, false);
+    for (size_t i = 0; i < count; ++i)
+        if (graph.nodes[i]) bypassed[i] = graph.nodes[i]->bypass.load(std::memory_order_relaxed);
 
     std::vector<std::array<Impl::Binding, 8>> inputs(count);
     std::vector<std::array<bool, 8>> inputInvalid(count);
@@ -407,7 +415,7 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         for (const auto& binding : inputs[destination]) {
             if (!binding.connected || duplicate[binding.source]) continue;
             const bool activeDelay = graph.nodes[destination]->kind == Kind::Delay &&
-                !graph.nodes[destination]->bypass.load(std::memory_order_relaxed);
+                !bypassed[destination];
             const bool deferredVideoPublication = graph.nodes[destination]->kind == Kind::VideoIo;
             if (activeDelay || deferredVideoPublication) continue;
             dependents[binding.source].push_back(destination);
@@ -457,6 +465,10 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         const auto& node = *graph.nodes[index];
         auto& state = impl_->io[node.key];
         ioSettings[index] = node.ioSettings();
+        if (bypassed[index]) {
+            outputs[index][0] = black;
+            continue;
+        }
         if (!state.backend && impl_->factory) {
             try { state.backend = impl_->factory(); }
             catch (...) {
@@ -494,13 +506,30 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             ++report.errors;
             appendStatus(statuses[index], "non-finite parameter");
         }
+        if (bypassed[index]) appendStatus(statuses[index], "bypassed");
         switch (node.kind) {
         case Kind::TestImage: {
+            const float speed = param(node, 1);
+            auto& state = impl_->tests[node.key];
+            const bool reset = graph.nodes[index]->resets.exchange(0, std::memory_order_acq_rel) > 0;
+            if (reset || !state.haveTime || !std::isfinite(seconds) || seconds < state.lastSeconds) {
+                if (reset || !state.haveTime) state.phase = 0;
+                state.lastSeconds = std::isfinite(seconds) ? seconds : 0;
+                state.haveTime = true;
+            } else {
+                state.phase += (seconds - state.lastSeconds) * static_cast<double>(speed);
+                state.phase -= std::floor(state.phase);
+                state.lastSeconds = seconds;
+            }
+            if (bypassed[index]) {
+                outputs[index][0] = black;
+                outputs[index][1] = zero;
+                break;
+            }
             auto image = makeFrame(format, 4, tick, seconds);
             auto field = makeFrame(format, 1, tick, seconds);
             const int pattern = modeParam(node, 0, 0, 3);
-            const float speed = param(node, 1);
-            const double phase = seconds * static_cast<double>(speed);
+            const double phase = state.phase;
             static const float bars[7][3] = {
                 {1, 1, 1}, {1, 1, 0}, {0, 1, 1}, {0, 1, 0},
                 {1, 0, 1}, {1, 0, 0}, {0, 0, 1}
@@ -511,13 +540,21 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                     const size_t p = static_cast<size_t>(y) * format.width + x;
                     float r = 0.f, g = 0.f, b = 0.f, f = 0.f;
                     if (pattern == 0) {
-                        const int bar = std::min(6, x * 7 / format.width);
+                        double position = static_cast<double>(x) / format.width + phase;
+                        position -= std::floor(position);
+                        const int bar = std::min(6, static_cast<int>(position * 7));
                         r = bars[bar][0]; g = bars[bar][1]; b = bars[bar][2]; f = r;
                     } else if (pattern == 1) {
-                        f = ((x / 32 + y / 32) & 1) ? 1.f : 0.f;
+                        const int scrolledX = x + static_cast<int>(std::floor(phase * 64.0));
+                        f = ((scrolledX / 32 + y / 32) & 1) ? 1.f : 0.f;
                         r = g = b = f;
                     } else if (pattern == 2) {
-                        f = format.width == 1 ? 0.f : static_cast<float>(x) / (format.width - 1);
+                        const double base = format.width == 1 ? 0.0 :
+                            static_cast<double>(x) / (format.width - 1);
+                        double advanced = base + phase;
+                        advanced -= std::floor(advanced);
+                        if (phase == 0.0 && x == format.width - 1) advanced = 1.0;
+                        f = static_cast<float>(advanced);
                         r = g = b = f;
                     } else {
                         const double frameDuration = static_cast<double>(format.rateDenominator) /
@@ -541,10 +578,26 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         }
         case Kind::Processor: {
             const FramePtr a = input(index, 0) ? input(index, 0) : black;
+            const int mode = modeParam(node, 3, 0, 4);
+            if (bypassed[index]) {
+                if (!matchesFormat(*a, format, 4)) {
+                    ++report.errors;
+                    appendStatus(statuses[index], "invalid input frame");
+                    outputs[index][0] = black;
+                    outputs[index][1] = zero;
+                    break;
+                }
+                auto field = makeFrame(format, 1, tick, seconds);
+                const int component = mode >= 2 ? mode - 2 : 0;
+                for (size_t p = 0; p < field->pixels.size(); ++p)
+                    field->pixels[p] = finiteOrZero(a->pixels[p * 4 + component], report.errors);
+                outputs[index][0] = a;
+                outputs[index][1] = field;
+                break;
+            }
             const FramePtr b = input(index, 1) ? input(index, 1) : black;
             const FramePtr modulation = inputInvalid[index][2] ? zero :
                 (input(index, 2) ? input(index, 2) : unity);
-            const int mode = modeParam(node, 3, 0, 4);
             auto image = makeFrame(format, 4, tick, seconds);
             auto field = makeFrame(format, 1, tick, seconds);
             if (!matchesFormat(*a, format, 4) || !matchesFormat(*b, format, 4) ||
@@ -585,26 +638,42 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             const double duration = static_cast<double>(format.rateDenominator) /
                                     static_cast<double>(format.rateNumerator);
             AudioSample sample;
-            while (graph.nodes[index]->audio.pop(sample)) {
-                if (!state.haveEpoch || sample.epoch != state.epoch) {
-                    state.samples.clear();
-                    state.epoch = sample.epoch;
-                    state.haveEpoch = true;
-                    state.haveTimeMapping = false;
+            auto resetCapturedState = [&] {
+                state.samples.clear();
+                state.haveEpoch = false;
+                state.haveTimeMapping = false;
+                state.pendingTriggers = 0;
+            };
+            const bool reset = graph.nodes[index]->resets.exchange(0, std::memory_order_acq_rel) > 0;
+            if (bypassed[index] || reset) {
+                resetCapturedState();
+                // Reset/bypass wins over all audio and trigger captures observed by this boundary.
+                // Producer events arriving after these drains remain queued for the following tick.
+                while (graph.nodes[index]->audio.pop(sample)) {}
+                graph.nodes[index]->triggers.exchange(0, std::memory_order_acq_rel);
+            } else {
+                while (graph.nodes[index]->audio.pop(sample)) {
+                    if (!state.haveEpoch || sample.epoch != state.epoch) {
+                        state.samples.clear();
+                        state.epoch = sample.epoch;
+                        state.haveEpoch = true;
+                        state.haveTimeMapping = false;
+                        state.pendingTriggers = 0;
+                    }
+                    if (!std::isfinite(sample.seconds) || !std::isfinite(sample.voltage)) {
+                        ++report.errors;
+                        appendStatus(statuses[index], "non-finite audio sample");
+                        continue;
+                    }
+                    if (!state.samples.empty() && sample.seconds < state.samples.back().seconds) {
+                        ++report.errors;
+                        appendStatus(statuses[index], "non-monotonic audio timestamp");
+                        continue;
+                    }
+                    state.samples.push_back(sample);
+                    if (state.samples.size() > kMaxAudioHistory)
+                        state.samples.pop_front();
                 }
-                if (!std::isfinite(sample.seconds) || !std::isfinite(sample.voltage)) {
-                    ++report.errors;
-                    appendStatus(statuses[index], "non-finite audio sample");
-                    continue;
-                }
-                if (!state.samples.empty() && sample.seconds < state.samples.back().seconds) {
-                    ++report.errors;
-                    appendStatus(statuses[index], "non-monotonic audio timestamp");
-                    continue;
-                }
-                state.samples.push_back(sample);
-                if (state.samples.size() > kMaxAudioHistory)
-                    state.samples.pop_front();
             }
             if (!state.haveTimeMapping && !state.samples.empty()) {
                 // Producer timestamps are local to each Rack module/epoch. Anchor the newest
@@ -613,17 +682,22 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 state.anchorAudioEndSeconds = state.samples.back().seconds;
                 state.haveTimeMapping = true;
             }
-            const uint64_t arrived = graph.nodes[index]->triggers.exchange(0, std::memory_order_acq_rel);
-            if (arrived > kMaxPendingTriggers - state.pendingTriggers) {
-                state.discardedTriggers += arrived - (kMaxPendingTriggers - state.pendingTriggers);
-                state.pendingTriggers = kMaxPendingTriggers;
-            } else {
-                state.pendingTriggers += arrived;
+            if (!bypassed[index] && !reset) {
+                const uint64_t arrived = graph.nodes[index]->triggers.exchange(0, std::memory_order_acq_rel);
+                if (arrived > kMaxPendingTriggers - state.pendingTriggers) {
+                    state.discardedTriggers += arrived -
+                        (kMaxPendingTriggers - state.pendingTriggers);
+                    state.pendingTriggers = kMaxPendingTriggers;
+                } else {
+                    state.pendingTriggers += arrived;
+                }
             }
             auto field = makeFrame(format, 1, tick, seconds);
             const int mode = modeParam(node, 0, 0, 2);
             const float scale = param(node, 1), offset = param(node, 2);
-            if (mode == 0) {
+            if (bypassed[index]) {
+                // The pre-zeroed field is the complete bypass output.
+            } else if (mode == 0) {
                 const float value = finiteOrZero(node.cvVoltage.load(std::memory_order_relaxed) * scale +
                                                  offset, report.errors);
                 std::fill(field->pixels.begin(), field->pixels.end(), value);
@@ -668,6 +742,9 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             }
             if (state.discardedTriggers)
                 appendStatus(statuses[index], "trigger overflow " + std::to_string(state.discardedTriggers));
+            const uint64_t droppedAudio = graph.nodes[index]->audio.dropped.load(std::memory_order_relaxed);
+            if (droppedAudio)
+                appendStatus(statuses[index], "audio queue dropped " + std::to_string(droppedAudio));
             outputs[index][0] = field;
             break;
         }
@@ -678,7 +755,7 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                                (pressed && !state.clearPressed);
             state.clearPressed = pressed;
             if (clear) state.history.reset();
-            if (node.bypass.load(std::memory_order_relaxed))
+            if (bypassed[index])
                 outputs[index][0] = input(index, 0) ? input(index, 0) : black;
             else
                 outputs[index][0] = state.history ? state.history : black;
@@ -694,7 +771,7 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
     // All active delays observed the old histories above. Only now may new histories be committed.
     for (size_t index : order) {
         const auto& node = *graph.nodes[index];
-        if (node.kind != Kind::Delay || node.bypass.load(std::memory_order_relaxed)) continue;
+        if (node.kind != Kind::Delay || bypassed[index]) continue;
         auto& state = impl_->delays[node.key];
         const FramePtr next = input(index, 0);
         state.history = next && matchesFormat(*next, format, 4) ? next : black;
@@ -704,6 +781,18 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         if (!graph.nodes[index] || !schedulable[index] || graph.nodes[index]->kind != Kind::VideoIo)
             continue;
         auto found = impl_->io.find(graph.nodes[index]->key);
+        if (bypassed[index]) {
+            if (found != impl_->io.end() && found->second.backend) {
+                IoSettings disabled = ioSettings[index];
+                disabled.publish = false;
+                try { found->second.backend->publish(disabled, {}); }
+                catch (...) {
+                    ++report.errors;
+                    appendStatus(statuses[index], "backend stop failed");
+                }
+            }
+            continue;
+        }
         if (found == impl_->io.end() || !found->second.backend) {
             appendStatus(statuses[index], "backend unavailable");
             continue;
@@ -735,12 +824,12 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         auto display = std::make_shared<NodeDisplay>();
         display->outputs = outputs[i];
         if (graph.nodes[i]->kind == Kind::Monitor)
-            display->preview = input(i, 0) ? input(i, 0) : black;
+            display->preview = bypassed[i] ? black : (input(i, 0) ? input(i, 0) : black);
         else if (graph.nodes[i]->kind == Kind::VideoIo)
             display->preview = outputs[i][0];
         display->status = statuses[i];
         display->tick = tick;
-        if (graph.nodes[i]->kind == Kind::VideoIo) {
+        if (graph.nodes[i]->kind == Kind::VideoIo && !bypassed[i]) {
             auto found = impl_->io.find(graph.nodes[i]->key);
             if (found != impl_->io.end() && found->second.backend) {
                 try { display->sources = found->second.backend->sources(); }
