@@ -1,6 +1,6 @@
-**Raster Voltage**
+**RVX**
 
-Analog video synthesis for VCV Rack on Mac. Repository name: `raster-voltage`.
+Analog video synthesis for VCV Rack on Mac. Repository name: `rvx`.
 
 Planning a family of video synthesis modules with close fidelity to LZX controls and analog signal behavior, Memory Palace-style processing, simulated NTSC dirty mixing, and bidirectional Syphon I/O.
 

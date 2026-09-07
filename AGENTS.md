@@ -1,4 +1,4 @@
-# Raster Voltage — project instructions
+# RVX — project instructions
 
 - This project is in planning and research. Do not begin plugin implementation, scaffolding, prototype builds, or dependency installation until the user explicitly approves coding. Creating and maintaining this repository and its planning documents is authorized.
 - The user prefers close reproduction of LZX controls, ports and behavior, with analog video signal behavior preserved wherever practical. Record approximation limits explicitly.
