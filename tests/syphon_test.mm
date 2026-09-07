@@ -88,6 +88,50 @@ int main() {
             }
         }
 
+        // A canvas change must reconvert the live Syphon image. Starting with a
+        // reduced frame makes a stale-cache or CPU-upscale implementation visible.
+        auto canvasReceiver = rvx::makeSyphonBackend();
+        rvx::Format smallFormat{2, 2, 30000, 1001};
+        rvx::FramePtr small;
+        for (int attempt = 0; attempt < 300 && !small; ++attempt) {
+            sender->publish(publish, input);
+            pumpNotifications();
+            small = canvasReceiver->receive(receive, smallFormat, 30, 0.0);
+        }
+        if (!small || small->width != 2 || small->height != 2) return 30;
+        rvx::FramePtr restored = canvasReceiver->receive(receive, format, 31, 0.0);
+        if (!restored || restored->sequence != 31 ||
+            restored->pixels.size() != input->pixels.size()) return 31;
+        for (size_t i = 0; i < input->pixels.size(); ++i) {
+            if (!close(restored->pixels[i], input->pixels[i])) return 32;
+        }
+        if (canvasReceiver->receive(receive, rvx::Format{8192, 8192, 30000, 1001},
+                                    32, 0.0) ||
+            canvasReceiver->status().find("unsupported") == std::string::npos) return 33;
+
+        // Changing the requested source invalidates the previous source's cache,
+        // even if the new server is discoverable but has not published a frame.
+        auto waitingSender = rvx::makeSyphonBackend();
+        rvx::IoSettings waitingPublish;
+        waitingPublish.publish = true;
+        waitingPublish.publisherName = publish.publisherName + " waiting";
+        rvx::VideoSource waitingSource;
+        for (int attempt = 0; attempt < 300 && waitingSource.id.empty(); ++attempt) {
+            waitingSender->publish(waitingPublish, {});
+            pumpNotifications();
+            for (const rvx::VideoSource& source : receiver->sources()) {
+                if (source.name == waitingPublish.publisherName) waitingSource = source;
+            }
+        }
+        if (waitingSource.id.empty()) return 34;
+        rvx::IoSettings waitingReceive;
+        waitingReceive.sourceId = waitingSource.id;
+        waitingReceive.sourceApplication = waitingSource.application;
+        waitingReceive.sourceName = waitingSource.name;
+        if (receiver->receive(waitingReceive, format, 33, 0.0) ||
+            receiver->status().find("waiting for frame") == std::string::npos) return 35;
+        waitingSender->publish(rvx::IoSettings{}, {});
+
         rvx::IoSettings relayPublish;
         relayPublish.publish = true;
         relayPublish.publisherName = publish.publisherName + " relay";
@@ -182,8 +226,11 @@ int main() {
             }
         }
         if (duplicateSource.id.empty()) return 23;
+        rvx::FramePtr afterDuplicate = receiver->receive(receive, format, 6, 0.0);
+        if (!afterDuplicate || receiver->status().find("ambiguous") != std::string::npos)
+            return 25;
         receive.sourceId = "missing-instance";
-        if (receiver->receive(receive, format, 6, 0.0) ||
+        if (receiver->receive(receive, format, 7, 0.0) ||
             receiver->status().find("ambiguous") == std::string::npos) return 24;
 
         duplicate->publish(off, {});

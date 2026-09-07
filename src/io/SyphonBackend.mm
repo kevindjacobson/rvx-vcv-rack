@@ -13,12 +13,19 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <new>
 #include <string>
 #include <utility>
 #include <vector>
 
 namespace rvx {
 namespace {
+
+constexpr size_t kMaxCpuFrameBytes = 128u * 1024u * 1024u;
+
+void clearGlErrors() {
+    while (glGetError() != GL_NO_ERROR) {}
+}
 
 std::string utf8(NSString* value) {
     if (!value) return {};
@@ -75,7 +82,12 @@ public:
     SyphonBackend() : context_(createContext()) {
         static std::atomic<uint64_t> nextPublisher{1};
         defaultPublisher_ = "RVX " + std::to_string(nextPublisher.fetch_add(1));
-        status_ = context_ ? "Syphon ready" : "Syphon unavailable: OpenGL context creation failed";
+        if (context_) {
+            CurrentContext current(context_);
+            glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize_);
+        }
+        status_ = context_ && maxTextureSize_ > 0
+            ? "Syphon ready" : "Syphon unavailable: OpenGL context creation failed";
     }
 
     ~SyphonBackend() override {
@@ -86,6 +98,8 @@ public:
                 closeServer();
                 if (uploadTexture_) glDeleteTextures(1, &uploadTexture_);
                 if (readFramebuffer_) glDeleteFramebuffers(1, &readFramebuffer_);
+                if (scaledFramebuffer_) glDeleteFramebuffers(1, &scaledFramebuffer_);
+                if (scaledTexture_) glDeleteTextures(1, &scaledTexture_);
             }
             if (context_) CGLReleaseContext(context_);
         }
@@ -109,27 +123,34 @@ public:
     FramePtr receive(const IoSettings& settings, const Format& format,
                      uint64_t tick, double seconds) override {
         @autoreleasepool {
-            if (!context_ || format.width <= 0 || format.height <= 0)
-                return missing(settings, "Syphon input unavailable");
+            if (!context_ || !validWorkingFormat(format))
+                return missing(settings, format, "Syphon input working format is unsupported");
             CurrentContext current(context_);
+            updateRequestedSelection(settings);
             NSDictionary<NSString*, id<NSCoding>>* description = resolve(settings);
-            if (!description)
-                return missing(settings, resolutionStatus(settings));
+            if (!description) {
+                closeClient();
+                return missing(settings, format, resolutionStatus(settings));
+            }
 
             const std::string resolvedId = sourceId(description);
             if (!client_ || selectedId_ != resolvedId || !client_.isValid) {
                 closeClient();
+                ++clientGeneration_;
                 client_ = [[SyphonOpenGLClient alloc]
                     initWithServerDescription:description context:context_
                                       options:nil newFrameHandler:nil];
                 selectedId_ = resolvedId;
                 if (!client_ || !client_.isValid) {
                     closeClient();
-                    return missing(settings, "Syphon input could not connect");
+                    return missing(settings, format, "Syphon input could not connect");
                 }
+                adoptedId_ = resolvedId;
             }
 
-            if (!client_.hasNewFrame && held_) {
+            const bool formatMatches = held_ && held_->width == format.width &&
+                                       held_->height == format.height;
+            if (!client_.hasNewFrame && heldGeneration_ == clientGeneration_ && formatMatches) {
                 inputStatus_ = "receiving " + selectedLabel_;
                 updateStatus();
                 return held_;
@@ -137,53 +158,78 @@ public:
 
             SyphonOpenGLImage* image = [client_ newFrameImage];
             if (!image || image.textureSize.width < 1 || image.textureSize.height < 1)
-                return missing(settings, "Syphon input waiting for frame");
+                return missing(settings, format, "Syphon input waiting for frame");
 
-            const int sourceWidth = static_cast<int>(image.textureSize.width);
-            const int sourceHeight = static_cast<int>(image.textureSize.height);
-            if (sourceWidth > std::numeric_limits<int>::max() / sourceHeight / 4)
-                return missing(settings, "Syphon input dimensions are unsupported");
+            const double sourceWidthValue = image.textureSize.width;
+            const double sourceHeightValue = image.textureSize.height;
+            if (!std::isfinite(sourceWidthValue) || !std::isfinite(sourceHeightValue) ||
+                sourceWidthValue > maxTextureSize_ || sourceHeightValue > maxTextureSize_ ||
+                sourceWidthValue > std::numeric_limits<int>::max() ||
+                sourceHeightValue > std::numeric_limits<int>::max())
+                return missing(settings, format, "Syphon input dimensions are unsupported");
+            const int sourceWidth = static_cast<int>(sourceWidthValue);
+            const int sourceHeight = static_cast<int>(sourceHeightValue);
 
-            std::vector<float> source(static_cast<size_t>(sourceWidth) * sourceHeight * 4);
+            if (!ensureScaledTarget(format.width, format.height))
+                return missing(settings, format, "Syphon input conversion target failed");
+
             glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
             glPixelStorei(GL_PACK_ALIGNMENT, 4);
             glPixelStorei(GL_PACK_ROW_LENGTH, 0);
             glPixelStorei(GL_PACK_SKIP_ROWS, 0);
             glPixelStorei(GL_PACK_SKIP_PIXELS, 0);
+            clearGlErrors();
             if (!readFramebuffer_) glGenFramebuffers(1, &readFramebuffer_);
             glBindFramebuffer(GL_READ_FRAMEBUFFER, readFramebuffer_);
             glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                                    GL_TEXTURE_RECTANGLE, image.textureName, 0);
             glReadBuffer(GL_COLOR_ATTACHMENT0);
             if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-                glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-                return missing(settings, "Syphon input framebuffer is incomplete");
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                return missing(settings, format, "Syphon input framebuffer is incomplete");
             }
-            glReadPixels(0, 0, sourceWidth, sourceHeight, GL_RGBA, GL_FLOAT, source.data());
-            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                   GL_TEXTURE_RECTANGLE, 0, 0);
-            glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-            if (glGetError() != GL_NO_ERROR)
-                return missing(settings, "Syphon input GPU readback failed");
 
-            auto frame = std::make_shared<Frame>();
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, scaledFramebuffer_);
+            glBlitFramebuffer(0, 0, sourceWidth, sourceHeight,
+                              0, 0, format.width, format.height,
+                              GL_COLOR_BUFFER_BIT, GL_NEAREST);
+            if (glGetError() != GL_NO_ERROR) {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                return missing(settings, format, "Syphon input GPU scale failed");
+            }
+
+            std::shared_ptr<Frame> frame;
+            try {
+                frame = std::make_shared<Frame>();
+                frame->pixels.resize(static_cast<size_t>(format.width) * format.height * 4);
+            }
+            catch (const std::bad_alloc&) {
+                glBindFramebuffer(GL_FRAMEBUFFER, 0);
+                return missing(settings, format, "Syphon input CPU frame allocation failed");
+            }
             frame->width = format.width;
             frame->height = format.height;
             frame->channels = 4;
             frame->sequence = tick;
             frame->seconds = seconds;
-            frame->pixels.resize(static_cast<size_t>(format.width) * format.height * 4);
-            for (int y = 0; y < format.height; ++y) {
-                // Syphon's OpenGL image has a bottom-left origin; RVX is top-left.
-                int sourceY = sourceHeight - 1 - (y * sourceHeight / format.height);
-                for (int x = 0; x < format.width; ++x) {
-                    int sourceX = x * sourceWidth / format.width;
-                    size_t from = (static_cast<size_t>(sourceY) * sourceWidth + sourceX) * 4;
-                    size_t to = (static_cast<size_t>(y) * format.width + x) * 4;
-                    std::copy_n(source.data() + from, 4, frame->pixels.data() + to);
-                }
+            glBindFramebuffer(GL_READ_FRAMEBUFFER, scaledFramebuffer_);
+            glReadBuffer(GL_COLOR_ATTACHMENT0);
+            glReadPixels(0, 0, format.width, format.height, GL_RGBA, GL_FLOAT,
+                         frame->pixels.data());
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            if (glGetError() != GL_NO_ERROR)
+                return missing(settings, format, "Syphon input GPU conversion failed");
+
+            // OpenGL readback is bottom-left; RVX storage is top-left.
+            const size_t rowFloats = static_cast<size_t>(format.width) * 4;
+            for (int y = 0; y < format.height / 2; ++y) {
+                float* top = frame->pixels.data() + static_cast<size_t>(y) * rowFloats;
+                float* bottom = frame->pixels.data() +
+                    static_cast<size_t>(format.height - 1 - y) * rowFloats;
+                std::swap_ranges(top, top + rowFloats, bottom);
             }
             held_ = frame;
+            heldGeneration_ = clientGeneration_;
             inputStatus_ = "receiving " + selectedLabel_;
             updateStatus();
             return frame;
@@ -192,7 +238,7 @@ public:
 
     void publish(const IoSettings& settings, FramePtr frame) override {
         @autoreleasepool {
-            if (!context_) return;
+            if (!context_ || maxTextureSize_ <= 0) return;
             CurrentContext current(context_);
             if (!settings.publish) {
                 closeServer();
@@ -219,7 +265,8 @@ public:
                 updateStatus();
                 return;
             }
-            if (frame->width > std::numeric_limits<int>::max() / frame->height / 4) {
+            if (frame->width > maxTextureSize_ || frame->height > maxTextureSize_ ||
+                static_cast<size_t>(frame->width) * frame->height > kMaxCpuFrameBytes / 4) {
                 outputStatus_ = "publisher rejected unsupported dimensions";
                 updateStatus();
                 return;
@@ -231,7 +278,14 @@ public:
                 updateStatus();
                 return;
             }
-            upload_.resize(pixelCount * 4);
+            try {
+                upload_.resize(pixelCount * 4);
+            }
+            catch (const std::bad_alloc&) {
+                outputStatus_ = "publisher staging allocation failed";
+                updateStatus();
+                return;
+            }
             for (size_t pixel = 0; pixel < pixelCount; ++pixel) {
                 size_t from = pixel * static_cast<size_t>(frame->channels);
                 size_t to = pixel * 4;
@@ -268,11 +322,74 @@ public:
     std::string status() const override { return status_; }
 
 private:
+    bool validWorkingFormat(const Format& format) const {
+        if (format.width <= 0 || format.height <= 0 ||
+            format.width > maxTextureSize_ || format.height > maxTextureSize_)
+            return false;
+        const size_t pixels = static_cast<size_t>(format.width) * format.height;
+        return pixels <= kMaxCpuFrameBytes / (4 * sizeof(float));
+    }
+
+    void updateRequestedSelection(const IoSettings& settings) {
+        if (settings.sourceId == requestedId_ &&
+            settings.sourceApplication == requestedApplication_ &&
+            settings.sourceName == requestedName_)
+            return;
+        closeClient();
+        held_.reset();
+        heldGeneration_ = 0;
+        adoptedId_.clear();
+        requestedId_ = settings.sourceId;
+        requestedApplication_ = settings.sourceApplication;
+        requestedName_ = settings.sourceName;
+    }
+
+    bool ensureScaledTarget(int width, int height) {
+        if (scaledTexture_ && scaledWidth_ == width && scaledHeight_ == height)
+            return true;
+        if (scaledTexture_) glDeleteTextures(1, &scaledTexture_);
+        scaledTexture_ = 0;
+        scaledWidth_ = 0;
+        scaledHeight_ = 0;
+        clearGlErrors();
+        if (!scaledFramebuffer_) glGenFramebuffers(1, &scaledFramebuffer_);
+        glGenTextures(1, &scaledTexture_);
+        glBindTexture(GL_TEXTURE_2D, scaledTexture_);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
+                     GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, scaledFramebuffer_);
+        glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, scaledTexture_, 0);
+        bool complete = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) ==
+                        GL_FRAMEBUFFER_COMPLETE && glGetError() == GL_NO_ERROR;
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        if (!complete) {
+            glDeleteTextures(1, &scaledTexture_);
+            scaledTexture_ = 0;
+            return false;
+        }
+        scaledWidth_ = width;
+        scaledHeight_ = height;
+        return true;
+    }
+
     NSDictionary<NSString*, id<NSCoding>>* resolve(const IoSettings& settings) {
         selectedLabel_.clear();
         ambiguous_ = false;
         NSArray<NSDictionary<NSString*, id<NSCoding>>*>* descriptions =
             SyphonServerDirectory.sharedDirectory.servers;
+        if (!adoptedId_.empty()) {
+            for (NSDictionary<NSString*, id<NSCoding>>* description in descriptions) {
+                if (sourceId(description) == adoptedId_) {
+                    selectedLabel_ = label(description);
+                    return description;
+                }
+            }
+            adoptedId_.clear();
+        }
         if (!settings.sourceId.empty()) {
             for (NSDictionary<NSString*, id<NSCoding>>* description in descriptions) {
                 if (sourceId(description) == settings.sourceId) {
@@ -313,10 +430,12 @@ private:
         return app + " / " + name;
     }
 
-    FramePtr missing(const IoSettings& settings, std::string message) {
+    FramePtr missing(const IoSettings& settings, const Format& format,
+                     std::string message) {
         inputStatus_ = std::move(message);
         updateStatus();
-        return settings.holdLast ? held_ : FramePtr{};
+        return settings.holdLast && held_ && held_->width == format.width &&
+               held_->height == format.height ? held_ : FramePtr{};
     }
 
     void closeClient() {
@@ -340,12 +459,23 @@ private:
     }
 
     CGLContextObj context_ = nullptr;
+    GLint maxTextureSize_ = 0;
     SyphonOpenGLClient* client_ = nil;
     SyphonOpenGLServer* server_ = nil;
     GLuint uploadTexture_ = 0;
     GLuint readFramebuffer_ = 0;
+    GLuint scaledFramebuffer_ = 0;
+    GLuint scaledTexture_ = 0;
+    int scaledWidth_ = 0;
+    int scaledHeight_ = 0;
     std::vector<uint8_t> upload_;
     FramePtr held_;
+    uint64_t clientGeneration_ = 0;
+    uint64_t heldGeneration_ = 0;
+    std::string requestedId_;
+    std::string requestedApplication_;
+    std::string requestedName_;
+    std::string adoptedId_;
     std::string selectedId_;
     std::string selectedLabel_;
     std::string defaultPublisher_;
