@@ -551,6 +551,10 @@ void testImageNodeBypass() {
 struct BackendState {
     FramePtr incoming;
     FramePtr published;
+    std::string availableSourceId;
+    std::string availableSourceApplication;
+    std::string availableSourceName;
+    std::string lastPublisherName;
     bool returnFrame = true;
     int receives = 0;
     int publishes = 0;
@@ -562,14 +566,18 @@ class FakeBackend : public VideoBackend {
 public:
     explicit FakeBackend(std::shared_ptr<BackendState> value) : state(std::move(value)) {}
     std::vector<VideoSource> sources() override { return {{"id", "app", "source"}}; }
-    FramePtr receive(const IoSettings&, const Format&, uint64_t, double) override {
+    FramePtr receive(const IoSettings& settings, const Format&, uint64_t, double) override {
         ++state->receives;
-        return state->returnFrame ? state->incoming : FramePtr{};
+        return state->returnFrame && settings.sourceId == state->availableSourceId &&
+            settings.sourceApplication == state->availableSourceApplication &&
+            settings.sourceName == state->availableSourceName
+            ? state->incoming : FramePtr{};
     }
     void publish(const IoSettings& settings, FramePtr frame) override {
         ++state->publishes;
         state->lastPublishEnabled = settings.publish;
         state->lastPublishHadFrame = frame != nullptr;
+        state->lastPublisherName = settings.publisherName;
         state->published = std::move(frame);
     }
     std::string status() const override { return "ready"; }
@@ -627,6 +635,87 @@ void testBackendBoundaryAndHold() {
     io->setIoSettings(settings);
     renderer.render(graph, format, 4, 4.0 / 30.0);
     NEAR(pixel(io->display()->outputs[0], 0, 0, 0), 0.f, 0.f);
+}
+
+void testIoSettingTransitions() {
+    const Format format{1, 1, 30, 1};
+    auto state = std::make_shared<BackendState>();
+    auto incoming = std::make_shared<Frame>();
+    incoming->width = incoming->height = 1;
+    incoming->channels = 4;
+    incoming->pixels = {.75f, .75f, .75f, 1.f};
+    state->incoming = incoming;
+    state->availableSourceId = "id-A";
+    state->availableSourceApplication = "app";
+    state->availableSourceName = "A";
+
+    Renderer renderer([state] { return std::make_unique<FakeBackend>(state); });
+    auto io = std::make_shared<Node>(Kind::VideoIo);
+    Graph graph{{io}, {}, 1};
+    IoSettings settings;
+    settings.sourceId = "id-A";
+    settings.sourceApplication = "app";
+    settings.sourceName = "A";
+    settings.publisherName = "first";
+    settings.publish = true;
+    settings.holdLast = true;
+    io->setIoSettings(settings);
+
+    renderer.render(graph, format, 0, 0.0);
+    CHECK(state->publishes == 1 && state->lastPublishEnabled && state->lastPublishHadFrame);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .75f, 0.f);
+
+    // Publisher-only settings do not invalidate a held frame from the same source.
+    state->returnFrame = false;
+    settings.publisherName = "second";
+    settings.publish = false;
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 1, 1.0 / 30.0);
+    CHECK(state->publishes == 2 && !state->lastPublishEnabled && !state->lastPublishHadFrame);
+    CHECK(state->lastPublisherName == "second");
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .75f, 0.f);
+
+    settings.publish = true;
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 2, 2.0 / 30.0);
+    CHECK(state->publishes == 3 && state->lastPublishEnabled && state->lastPublishHadFrame);
+    CHECK(state->lastPublisherName == "second");
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .75f, 0.f);
+
+    // A UUID change identifies a new selection even when its labels match.
+    settings.sourceId = "id-B";
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 3, 3.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), 0.f, 0.f);
+
+    state->availableSourceId = "id-B";
+    state->returnFrame = true;
+    incoming->pixels[0] = .25f;
+    renderer.render(graph, format, 4, 4.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .25f, 0.f);
+
+    // Missing input may hold the last frame only while the selection stays the same.
+    state->returnFrame = false;
+    renderer.render(graph, format, 5, 5.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .25f, 0.f);
+    settings.sourceApplication = "other app";
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 6, 6.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), 0.f, 0.f);
+
+    state->availableSourceApplication = "other app";
+    state->returnFrame = true;
+    incoming->pixels[0] = .5f;
+    renderer.render(graph, format, 7, 7.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .5f, 0.f);
+
+    state->returnFrame = false;
+    renderer.render(graph, format, 8, 8.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .5f, 0.f);
+    settings.sourceName = "B";
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 9, 9.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), 0.f, 0.f);
 }
 
 struct ThreadBackendState {
@@ -796,6 +885,7 @@ int main() {
     testCvClockDriftRecovery();
     testImageNodeBypass();
     testBackendBoundaryAndHold();
+    testIoSettingTransitions();
     testBackendWorkerLifetime();
     testEngineIndependentClock();
     testWorkerRunIdentifiers();

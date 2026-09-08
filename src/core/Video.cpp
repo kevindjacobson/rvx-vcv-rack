@@ -326,7 +326,12 @@ struct Renderer::Impl {
         uint64_t historyEvictions = 0;
         uint64_t clockReanchors = 0;
     };
-    struct IoState { std::unique_ptr<VideoBackend> backend; FramePtr lastReceived; };
+    struct IoState {
+        std::unique_ptr<VideoBackend> backend;
+        FramePtr lastReceived;
+        IoSettings selection;
+        bool haveSelection = false;
+    };
 
     explicit Impl(VideoBackendFactory value) : factory(std::move(value)) {}
 
@@ -530,6 +535,15 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         const auto& node = *graph.nodes[index];
         auto& state = impl_->io[node.key];
         ioSettings[index] = node.ioSettings();
+        const bool selectionChanged = !state.haveSelection ||
+            state.selection.sourceId != ioSettings[index].sourceId ||
+            state.selection.sourceApplication != ioSettings[index].sourceApplication ||
+            state.selection.sourceName != ioSettings[index].sourceName;
+        if (selectionChanged) {
+            state.lastReceived.reset();
+            state.selection = ioSettings[index];
+            state.haveSelection = true;
+        }
         if (bypassed[index]) {
             outputs[index][0] = black;
             continue;
@@ -923,15 +937,17 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             appendStatus(statuses[index], "backend unavailable");
             continue;
         }
-        if (ioSettings[index].publish) {
-            try {
+        try {
+            if (ioSettings[index].publish) {
                 const FramePtr publishInput = input(index, 0) ? input(index, 0) : black;
                 found->second.backend->publish(
                     ioSettings[index], exportFrame(publishInput, format, report.errors));
-            } catch (...) {
-                ++report.errors;
-                appendStatus(statuses[index], "backend publish failed");
+            } else {
+                found->second.backend->publish(ioSettings[index], {});
             }
+        } catch (...) {
+            ++report.errors;
+            appendStatus(statuses[index], "backend publish failed");
         }
         try { appendStatus(statuses[index], found->second.backend->status()); }
         catch (...) {
