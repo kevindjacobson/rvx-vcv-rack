@@ -189,6 +189,38 @@ void appendStatus(std::string& status, const std::string& message) {
 
 } // namespace
 
+void RenderTimingHistogram::observe(double milliseconds) noexcept {
+    if (!(milliseconds >= 0.0))
+        milliseconds = 0.0;
+    ++count;
+    maximumMilliseconds = std::max(maximumMilliseconds, milliseconds);
+    size_t bucket = bucketCount - 1;
+    if (milliseconds < saturationMilliseconds) {
+        bucket = static_cast<size_t>(std::ceil(milliseconds / resolutionMilliseconds));
+    } else {
+        ++saturated;
+    }
+    ++buckets[bucket];
+}
+
+double RenderTimingHistogram::quantile(double probability) const noexcept {
+    if (count == 0)
+        return 0.0;
+    if (!(probability >= 0.0))
+        probability = 0.0;
+    probability = std::min(1.0, probability);
+    uint64_t rank = static_cast<uint64_t>(
+        std::ceil(static_cast<long double>(count) * probability));
+    rank = std::max<uint64_t>(1, rank);
+    uint64_t cumulative = 0;
+    for (size_t bucket = 0; bucket < buckets.size(); ++bucket) {
+        cumulative += buckets[bucket];
+        if (cumulative >= rank)
+            return static_cast<double>(bucket) * resolutionMilliseconds;
+    }
+    return saturationMilliseconds;
+}
+
 PortType inputType(Kind kind, int port) {
     switch (kind) {
     case Kind::Processor:
@@ -955,6 +987,7 @@ struct Engine::Impl {
     bool running = false;
     bool stopRequested = false;
     std::thread worker;
+    uint64_t workerRuns = 0;
 
     void run() {
         using Clock = std::chrono::steady_clock;
@@ -968,6 +1001,11 @@ struct Engine::Impl {
                   static_cast<long double>(videoFormat.rateNumerator)
             : 1.0L / 30.0L;
         uint64_t tick = 0;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            statistics = {};
+            statistics.workerRun = ++workerRuns;
+        }
         while (true) {
             const auto target = origin + std::chrono::duration_cast<Clock::duration>(
                 std::chrono::duration<long double>(static_cast<long double>(tick) * period));
@@ -995,9 +1033,16 @@ struct Engine::Impl {
             statistics.lastMilliseconds = report.milliseconds;
             statistics.maxMilliseconds = std::max(statistics.maxMilliseconds, report.milliseconds);
             statistics.frameBytes = report.frameBytes;
+            statistics.renderMilliseconds.observe(report.milliseconds);
+            statistics.renderErrors += report.errors;
+            if (report.errors != 0)
+                ++statistics.renderErrorFrames;
             const bool late = after > nextTarget || before > target + std::chrono::duration_cast<Clock::duration>(
                     std::chrono::duration<long double>(period));
-            if (late) ++statistics.lateFrames;
+            if (late) {
+                ++statistics.renderDeadlineMisses;
+                ++statistics.lateFrames;
+            }
             ++tick;
             // Absolute targets prevent cumulative drift; overload skips stale simulation ticks.
             const auto now = Clock::now();
@@ -1008,7 +1053,9 @@ struct Engine::Impl {
                 const long double elapsed = std::chrono::duration<long double>(now - origin).count();
                 const uint64_t resumedTick = static_cast<uint64_t>(elapsed / period) + 1;
                 if (resumedTick > tick) {
-                    statistics.lateFrames += resumedTick - tick;
+                    const uint64_t skipped = resumedTick - tick;
+                    statistics.skippedTicks += skipped;
+                    statistics.lateFrames += skipped;
                     tick = resumedTick;
                 }
             }

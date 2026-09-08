@@ -68,6 +68,26 @@ void testTypesDefaultsAndQueue() {
     CHECK(!queue.pop(value));
 }
 
+void testRenderTimingHistogram() {
+    RenderTimingHistogram histogram;
+    CHECK(histogram.quantile(.50) == 0.0);
+    CHECK(histogram.count == 0 && histogram.saturated == 0);
+
+    histogram.observe(0.0);
+    histogram.observe(0.01);
+    histogram.observe(1.0);
+    histogram.observe(10.01);
+    histogram.observe(std::numeric_limits<double>::max());
+    CHECK(histogram.count == 5);
+    CHECK(histogram.saturated == 1);
+    CHECK(histogram.maximumMilliseconds == std::numeric_limits<double>::max());
+    CHECK(histogram.quantile(-1.0) == 0.0);
+    CHECK(histogram.quantile(.50) == 1.0);
+    CHECK(histogram.quantile(.95) == RenderTimingHistogram::saturationMilliseconds);
+    CHECK(histogram.quantile(2.0) == RenderTimingHistogram::saturationMilliseconds);
+    CHECK(histogram.quantile(std::numeric_limits<double>::quiet_NaN()) == 0.0);
+}
+
 void testPatternsProcessorAndConversion() {
     Format format{4, 2, 2, 1};
     auto source = std::make_shared<Node>(Kind::TestImage);
@@ -674,21 +694,66 @@ void testEngineIndependentClock() {
     engine.stop();
     const EngineStats stats = engine.stats();
     CHECK(stats.ticks >= 7);
+    CHECK(stats.workerRun == 1);
+    CHECK(stats.renderMilliseconds.count == stats.ticks);
+    CHECK(stats.renderErrors == 0 && stats.renderErrorFrames == 0);
     CHECK(source->display() && source->display()->tick + 1 == stats.ticks);
     CHECK(stats.frameBytes > 0 && stats.maxMilliseconds >= stats.lastMilliseconds);
+    CHECK(stats.maxMilliseconds == stats.renderMilliseconds.maximumMilliseconds);
+    CHECK(stats.renderMilliseconds.quantile(.50) <= stats.renderMilliseconds.quantile(.95));
+    CHECK(stats.renderMilliseconds.quantile(.95) <= stats.renderMilliseconds.quantile(.99));
+    CHECK(stats.lateFrames == stats.renderDeadlineMisses + stats.skippedTicks);
     CHECK(engine.format().rateNumerator == 50);
 
     engine.start();
     const auto restartDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-    while (engine.stats().ticks == stats.ticks && std::chrono::steady_clock::now() < restartDeadline)
+    while (engine.stats().workerRun == stats.workerRun &&
+           std::chrono::steady_clock::now() < restartDeadline)
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     engine.stop();
-    CHECK(engine.stats().ticks > stats.ticks);
+    const EngineStats restarted = engine.stats();
+    CHECK(restarted.workerRun == stats.workerRun + 1);
+    CHECK(restarted.ticks > 0 && restarted.renderMilliseconds.count == restarted.ticks);
+}
+
+void testEngineReportAggregation() {
+    Engine engine(Format{0, 1, 200, 1});
+    engine.submit(Graph{{std::make_shared<Node>(Kind::TestImage)}, {}, 1});
+    engine.start();
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (engine.stats().ticks < 5 && std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    const EngineStats beforeTopologyChange = engine.stats();
+    engine.submit(Graph{});
+    while (engine.stats().ticks < beforeTopologyChange.ticks + 3 &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.stop();
+    const EngineStats stats = engine.stats();
+    CHECK(stats.workerRun == beforeTopologyChange.workerRun);
+    CHECK(stats.ticks >= beforeTopologyChange.ticks + 3);
+    CHECK(stats.renderMilliseconds.count == stats.ticks);
+    CHECK(stats.renderErrors == stats.ticks);
+    CHECK(stats.renderErrorFrames == stats.ticks);
+    CHECK(stats.maxMilliseconds == stats.renderMilliseconds.maximumMilliseconds);
+
+    engine.start();
+    const auto restartDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while ((engine.stats().workerRun == stats.workerRun || engine.stats().ticks < 3) &&
+           std::chrono::steady_clock::now() < restartDeadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.stop();
+    const EngineStats restarted = engine.stats();
+    CHECK(restarted.workerRun == stats.workerRun + 1);
+    CHECK(restarted.ticks >= 3);
+    CHECK(restarted.renderErrors == restarted.ticks);
+    CHECK(restarted.renderErrorFrames == restarted.ticks);
 }
 } // namespace
 
 int main() {
     testTypesDefaultsAndQueue();
+    testRenderTimingHistogram();
     testPatternsProcessorAndConversion();
     testRasterPhaseOrdering();
     testPhaseSpeedAllPatterns();
@@ -702,6 +767,7 @@ int main() {
     testBackendBoundaryAndHold();
     testBackendWorkerLifetime();
     testEngineIndependentClock();
+    testEngineReportAggregation();
     if (failures) {
         std::cerr << failures << " test assertion(s) failed\n";
         return EXIT_FAILURE;

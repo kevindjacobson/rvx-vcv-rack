@@ -186,9 +186,12 @@ int main() {
     // Restart once more with an empty graph to cover reuse after renderer destruction.
     engine.submit(Graph{});
     finalIo.reset();
-    const uint64_t ticksBeforeRestart = engine.stats().ticks;
+    const uint64_t runBeforeRestart = engine.stats().workerRun;
     engine.start();
-    if (!waitUntil([&] { return engine.stats().ticks > ticksBeforeRestart; }))
+    if (!waitUntil([&] {
+            const EngineStats stats = engine.stats();
+            return stats.workerRun > runBeforeRestart && stats.ticks > 0;
+        }))
         return fail("engine did not render after final restart");
     engine.stop();
 

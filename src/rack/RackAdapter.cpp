@@ -318,11 +318,19 @@ void PatchService::syncRackUi() {
             if (graph.nodes[i]->kind == Kind::VideoIo && display->outputs[0])
                 sourceSequence = std::max(sourceSequence, display->outputs[0]->sequence);
         }
-        INFO("RVX diagnostics tick=%llu lateFrames=%llu lastMs=%.3f maxMs=%.3f frameBytes=%zu nodes=%zu edges=%zu errors=%zu monitorSequence=%llu sourceSequence=%llu",
-            static_cast<unsigned long long>(s.ticks),
-            static_cast<unsigned long long>(s.lateFrames), s.lastMilliseconds,
-            s.maxMilliseconds, s.frameBytes, graph.nodes.size(), graph.connections.size(),
-            adapterErrors_, static_cast<unsigned long long>(monitorSequence),
+        INFO("RVX diagnostics workerRun=%llu renderFrames=%llu renderDeadlineMisses=%llu skippedTicks=%llu lateTickSlots=%llu p50Ms=%.3f p95Ms=%.3f p99Ms=%.3f lastMs=%.3f maxMs=%.3f histogramSaturated=%llu renderErrors=%llu renderErrorFrames=%llu frameBytes=%zu nodes=%zu edges=%zu adapterErrors=%zu monitorSequence=%llu sourceSequence=%llu",
+            static_cast<unsigned long long>(s.workerRun),
+            static_cast<unsigned long long>(s.renderMilliseconds.count),
+            static_cast<unsigned long long>(s.renderDeadlineMisses),
+            static_cast<unsigned long long>(s.skippedTicks),
+            static_cast<unsigned long long>(s.lateFrames),
+            s.renderMilliseconds.quantile(.50), s.renderMilliseconds.quantile(.95),
+            s.renderMilliseconds.quantile(.99), s.lastMilliseconds, s.maxMilliseconds,
+            static_cast<unsigned long long>(s.renderMilliseconds.saturated),
+            static_cast<unsigned long long>(s.renderErrors),
+            static_cast<unsigned long long>(s.renderErrorFrames), s.frameBytes,
+            graph.nodes.size(), graph.connections.size(), adapterErrors_,
+            static_cast<unsigned long long>(monitorSequence),
             static_cast<unsigned long long>(sourceSequence));
     }
 }

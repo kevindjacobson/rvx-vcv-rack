@@ -80,7 +80,32 @@ private:
 struct Connection { uint64_t source = 0; int output = 0; uint64_t destination = 0; int input = 0; };
 struct Graph { std::vector<std::shared_ptr<Node>> nodes; std::vector<Connection> connections; uint64_t revision = 0; };
 struct RenderReport { uint64_t tick = 0, errors = 0; double milliseconds = 0; size_t frameBytes = 0; };
-struct EngineStats { uint64_t ticks = 0, lateFrames = 0; double lastMilliseconds = 0, maxMilliseconds = 0; size_t frameBytes = 0; };
+// Nearest-rank quantiles use fixed 0.05 ms upper-bound buckets through 100 ms.
+// Values at or above 100 ms share the final bucket; count and maximum remain exact.
+struct RenderTimingHistogram {
+    static constexpr double resolutionMilliseconds = 0.05;
+    static constexpr double saturationMilliseconds = 100.0;
+    static constexpr size_t bucketCount = 2001;
+    std::array<uint64_t, bucketCount> buckets{};
+    uint64_t count = 0;
+    uint64_t saturated = 0;
+    double maximumMilliseconds = 0;
+    void observe(double milliseconds) noexcept;
+    double quantile(double probability) const noexcept;
+};
+struct EngineStats {
+    // Existing fields remain source-compatible. lateFrames is the sum of rendered
+    // deadline misses and skipped scheduled ticks for the current worker run.
+    uint64_t ticks = 0, lateFrames = 0;
+    double lastMilliseconds = 0, maxMilliseconds = 0;
+    size_t frameBytes = 0;
+    uint64_t workerRun = 0;
+    uint64_t renderDeadlineMisses = 0;
+    uint64_t skippedTicks = 0;
+    uint64_t renderErrors = 0;
+    uint64_t renderErrorFrames = 0;
+    RenderTimingHistogram renderMilliseconds;
+};
 class VideoBackend;
 using VideoBackendFactory = std::function<std::unique_ptr<VideoBackend>()>;
 // Deterministic, synchronous renderer used by both worker and independent tests.
