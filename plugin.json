@@ -42,7 +42,7 @@
     {
       "slug": "FrameDelay",
       "name": "Frame Delay",
-      "description": "Explicit one-frame video delay and feedback state",
+      "description": "Adjustable 1–60-frame video delay and feedback state",
       "tags": [
         "Visual",
         "Delay"
