@@ -227,7 +227,10 @@ struct FrameDelayModule : Module {
     }
 
     void onReset(const ResetEvent& e) override {
-        Module::onReset(e);
+        ::rack::engine::Module::onReset(e);
+        // Publish the reset parameter values before advancing the reset trigger,
+        // including when Rack audio processing is paused.
+        publishRestoredState();
         clearButtonDetector.reset();
         clearGateDetector.reset();
     }

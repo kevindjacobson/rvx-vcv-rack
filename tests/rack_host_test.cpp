@@ -117,8 +117,12 @@ int main() {
         delay.process({48000.f, 1.f / 48000.f, 4});
         assert(delay.node()->resets.load() == beforeClear + 2);
 
+        const uint64_t beforeModuleReset = delay.node()->resets.load();
         delay.onReset(rack::engine::Module::ResetEvent{});
         assert(frames->getValue() == static_cast<float>(rvx::kDefaultDelayFrames));
+        assert(delay.node()->params[rvx::kDelayFramesParam].load()
+            == static_cast<float>(rvx::kDefaultDelayFrames));
+        assert(delay.node()->resets.load() == beforeModuleReset + 1);
         delay.process({48000.f, 1.f / 48000.f, 5});
         assert(delay.node()->params[rvx::kDelayFramesParam].load()
             == static_cast<float>(rvx::kDefaultDelayFrames));
