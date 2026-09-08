@@ -1,5 +1,6 @@
 #include "../src/rack/Modules.cpp"
 #include "../src/io/VideoBackend.hpp"
+#include <plugin.hpp>
 
 #include <cassert>
 #include <iostream>

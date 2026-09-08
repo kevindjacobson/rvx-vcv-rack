@@ -3,7 +3,7 @@ CXX := clang++
 RACK_DIR ?= dep/Rack-SDK
 SYPHON_DIR ?= dep/Syphon
 SYPHON_LIB ?= $(SYPHON_DIR)/libSyphon.a
-CPPFLAGS += -Isrc -I"$(RACK_DIR)/include" -I"$(RACK_DIR)/dep/include" -I"$(SYPHON_DIR)/include"
+CPPFLAGS += -I"$(RACK_DIR)/include" -I"$(RACK_DIR)/dep/include" -I"$(SYPHON_DIR)/include" -Isrc
 CXXFLAGS += -std=c++17 -O2 -g -fPIC -Wall -Wextra -Wno-unused-parameter -arch arm64 -mmacosx-version-min=11.0
 FRAMEWORKS := -framework Foundation -framework AppKit -framework OpenGL -framework IOSurface -framework CoreVideo
 CPP_SOURCES := $(wildcard src/*.cpp src/core/*.cpp src/rack/*.cpp)
@@ -47,11 +47,11 @@ build/lifecycle-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.
 test-lifecycle: build/lifecycle-test
 	./build/lifecycle-test
 
-build/rack-adapter-test: src/rack/PublisherNames.hpp tests/rack_adapter_test.cpp
+build/rack-adapter-test: src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics.hpp tests/rack_adapter_test.cpp
 	@mkdir -p build
 	$(CXX) -std=c++17 -O2 -g -Wall -Wextra tests/rack_adapter_test.cpp -o $@
 
-build/rack-host-test: src/core/Video.cpp src/core/Video.hpp src/rack/RackAdapter.cpp src/rack/RackAdapter.hpp src/rack/Modules.cpp src/rack/PublisherNames.hpp tests/rack_host_test.cpp | check-sdk
+build/rack-host-test: src/core/Video.cpp src/core/Video.hpp src/rack/RackAdapter.cpp src/rack/RackAdapter.hpp src/rack/Modules.cpp src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics.hpp tests/rack_host_test.cpp | check-sdk
 	@mkdir -p build
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -pthread src/core/Video.cpp src/rack/RackAdapter.cpp tests/rack_host_test.cpp -L"$(RACK_DIR)" -lRack -o $@
 
