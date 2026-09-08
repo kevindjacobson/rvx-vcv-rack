@@ -7,11 +7,15 @@ CPPFLAGS += -I"$(RACK_DIR)/include" -I"$(RACK_DIR)/dep/include" -I"$(SYPHON_DIR)
 CXXFLAGS += -std=c++17 -O2 -g -fPIC -Wall -Wextra -Wno-unused-parameter -arch arm64 -mmacosx-version-min=11.0
 FRAMEWORKS := -framework Foundation -framework AppKit -framework OpenGL -framework IOSurface -framework CoreVideo
 NATIVE_CXXFLAGS := -std=c++17 -O2 -g -Wall -Wextra -Wpedantic -arch arm64 -mmacosx-version-min=11.0
+PORTABLE_CXXFLAGS ?= -std=c++17 -O2 -g -Wall -Wextra -pthread
+SANITIZER_CXXFLAGS := -std=c++17 -O1 -g -Wall -Wextra -pthread -fno-omit-frame-pointer -fsanitize=address,undefined
+SANITIZER_LDFLAGS := -fsanitize=address,undefined
 CPP_SOURCES := $(wildcard src/*.cpp src/core/*.cpp src/rack/*.cpp)
 MM_SOURCES := $(wildcard src/io/*.mm)
 OBJECTS := $(patsubst %.cpp,build/%.o,$(CPP_SOURCES)) $(patsubst %.mm,build/%.o,$(MM_SOURCES))
 
-.PHONY: all deps check-sdk test test-lifecycle test-rack test-syphon benchmark \
+.PHONY: all deps check-sdk test test-lifecycle test-rack-adapter test-rack test-syphon \
+	test-sanitizers benchmark \
 	native-validation-tools test-native-coreaudio test-native-syphon-path \
 	test-native-validation dist install clean
 all: plugin.dylib
@@ -38,29 +42,48 @@ plugin.dylib: $(OBJECTS) $(SYPHON_LIB)
 
 build/core-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.hpp tests/core_test.cpp
 	@mkdir -p build
-	$(CXX) -std=c++17 -O2 -g -Wall -Wextra -pthread src/core/Video.cpp tests/core_test.cpp -o $@
+	$(CXX) $(PORTABLE_CXXFLAGS) src/core/Video.cpp tests/core_test.cpp -o $@
 
 test: build/core-test
 	./build/core-test
 
 build/lifecycle-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.hpp tests/lifecycle_test.cpp
 	@mkdir -p build
-	$(CXX) -std=c++17 -O2 -g -Wall -Wextra -pthread src/core/Video.cpp tests/lifecycle_test.cpp -o $@
+	$(CXX) $(PORTABLE_CXXFLAGS) src/core/Video.cpp tests/lifecycle_test.cpp -o $@
 
 test-lifecycle: build/lifecycle-test
 	./build/lifecycle-test
 
 build/rack-adapter-test: src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics.hpp tests/rack_adapter_test.cpp
 	@mkdir -p build
-	$(CXX) -std=c++17 -O2 -g -Wall -Wextra tests/rack_adapter_test.cpp -o $@
+	$(CXX) $(PORTABLE_CXXFLAGS) tests/rack_adapter_test.cpp -o $@
+
+test-rack-adapter: build/rack-adapter-test
+	./build/rack-adapter-test
 
 build/rack-host-test: src/core/Video.cpp src/core/Video.hpp src/rack/RackAdapter.cpp src/rack/RackAdapter.hpp src/rack/Modules.cpp src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics.hpp tests/rack_host_test.cpp | check-sdk
 	@mkdir -p build
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -pthread src/core/Video.cpp src/rack/RackAdapter.cpp tests/rack_host_test.cpp -L"$(RACK_DIR)" -lRack -o $@
 
-test-rack: build/rack-adapter-test build/rack-host-test
-	./build/rack-adapter-test
+test-rack: test-rack-adapter build/rack-host-test
 	DYLD_LIBRARY_PATH="$(RACK_DIR)" ./build/rack-host-test
+
+build/sanitizers/core-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.hpp tests/core_test.cpp
+	@mkdir -p build/sanitizers
+	$(CXX) $(SANITIZER_CXXFLAGS) src/core/Video.cpp tests/core_test.cpp $(SANITIZER_LDFLAGS) -o $@
+
+build/sanitizers/lifecycle-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.hpp tests/lifecycle_test.cpp
+	@mkdir -p build/sanitizers
+	$(CXX) $(SANITIZER_CXXFLAGS) src/core/Video.cpp tests/lifecycle_test.cpp $(SANITIZER_LDFLAGS) -o $@
+
+build/sanitizers/rack-adapter-test: src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics.hpp tests/rack_adapter_test.cpp
+	@mkdir -p build/sanitizers
+	$(CXX) $(SANITIZER_CXXFLAGS) tests/rack_adapter_test.cpp $(SANITIZER_LDFLAGS) -o $@
+
+test-sanitizers: build/sanitizers/core-test build/sanitizers/lifecycle-test build/sanitizers/rack-adapter-test
+	ASAN_OPTIONS=halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./build/sanitizers/core-test
+	ASAN_OPTIONS=halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./build/sanitizers/lifecycle-test
+	ASAN_OPTIONS=halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ./build/sanitizers/rack-adapter-test
 
 build/benchmark: src/core/Video.cpp src/core/Video.hpp tests/benchmark.cpp
 	@mkdir -p build
