@@ -1,0 +1,30 @@
+{
+  "version": "2.6.6",
+  "zoom": 2.0,
+  "gridOffset": [-2, -0.02],
+  "modules": [
+    {
+      "id": 700, "plugin": "RVX", "model": "TestImage", "version": "2.0.0",
+      "params": [{"id": 0, "value": 2.0}, {"id": 1, "value": 0.25}],
+      "data": {"rvxSchema": 1}, "pos": [0, 0]
+    },
+    {
+      "id": 701, "plugin": "RVX", "model": "VideoMonitor", "version": "2.0.0",
+      "params": [], "data": {"rvxSchema": 1}, "pos": [22, 0]
+    },
+    {
+      "id": 702, "plugin": "RVX", "model": "FrameDelay", "version": "2.0.0",
+      "params": [{"id": 0, "value": 0.0}, {"id": 1, "value": 15.0}],
+      "data": {"rvxSchema": 1}, "pos": [12, 0]
+    },
+    {
+      "id": 703, "plugin": "RVX", "model": "VideoMonitor", "version": "2.0.0",
+      "params": [], "data": {"rvxSchema": 1}, "pos": [38, 0]
+    }
+  ],
+  "cables": [
+    {"id": 7000, "outputModuleId": 700, "outputId": 0, "inputModuleId": 701, "inputId": 0, "color": "#4dc9ff"},
+    {"id": 7001, "outputModuleId": 700, "outputId": 0, "inputModuleId": 702, "inputId": 0, "color": "#4dc9ff"},
+    {"id": 7002, "outputModuleId": 702, "outputId": 0, "inputModuleId": 703, "inputId": 0, "color": "#ff5ac2"}
+  ]
+}

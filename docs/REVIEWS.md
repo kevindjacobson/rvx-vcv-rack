@@ -1,6 +1,6 @@
 # Prototype independent review record
 
-All reviews below were newly spawned with `fork_turns: "none"`, with requirements and exact repository revisions supplied but no inherited implementation conversation. Writers worked in separate engine, Rack and Syphon worktrees; integration is on `issue-13-prototype`. Every review uses main `e46ae395909d0cf023b57dc00fda0ab9c38baaa1` as the overall change base. A review of one component does not establish acceptance of unrelated components or untested host behavior.
+All reviews below were newly spawned with `fork_turns: "none"`, with requirements and exact repository revisions supplied but no inherited implementation conversation. Writers worked in separate engine, Rack and Syphon worktrees; integration is on `issue-13-prototype`. The prototype reviews in the first table use main `e46ae395909d0cf023b57dc00fda0ab9c38baaa1` as the overall change base; follow-on reviews below identify their stacked base separately. A review of one component does not establish acceptance of unrelated components or untested host behavior.
 
 | Reviewer | Reviewed head | Scope and result | Resolution |
 |---|---|---|---|
@@ -28,6 +28,21 @@ Reviewer probes were kept outside the repository while investigating. Durable re
 
 The native audio example additionally exposed drift between Rack's fallback audio clock and the independent video clock. This integration finding is separate from the review findings; the bounded recovery policy is implemented in `53aba86`, with interrupted-capture recovery in `76e43ae`. The native Fundamental VCO example displayed a waveform after the first repair. Final runtime verification remains in the validation record.
 
+
+## Adjustable Frame Delay (#18)
+
+Engine and panel writers used separate worktrees. Integration uses `issue-18-frame-count` on prototype base `413a14991168cbd6ff69785fef90cfa643ac2030`. Each reviewer below was newly spawned with `fork_turns: "none"`. Runtime source is unchanged after `9a33523403997a51a0b14439e9256aa2d5764eca`; later commits repair tests, improve the example and record evidence. Review of one scope does not establish unrelated native/hardware acceptance.
+
+| Reviewer | Reviewed head | Scope and result | Resolution |
+|---|---|---|---|
+| `/root/review_delay_history` | Engine `c5db74353bd6df3057122f0f97493c5acdadbbbf`, integrated as `1d03038`; contract at `b026620` | No production-core defect found. ASan/UBSan core/lifecycle and independent exact-age, count-change, feedback, discontinuity, metadata, removal and budget/recovery probes passed. P2: lifecycle assertion watched the visible t−60 frame after eviction, so disabling delay-history cleanup still passed | Test repaired in worker `36aedb5`, integrated as `cd46083`; further independent review below found a separate scheduling gap |
+| `/root/review_delay_panel` | Panel `470e84b13ba64177065dce198cc22ef2a95ff013`, integrated as `cbecf3b` | P2: native reset could leave shared count stale until the next audio callback. Other static panel/port/parameter checks found no issue | Reset publication repaired in worker `73e36db`, integrated as `9a33523`; fresh review below |
+| `/root/review_delay_reset_repair` | `9a33523403997a51a0b14439e9256aa2d5764eca` | No actionable findings in Rack/panel and SDK integration. Actual-core/SDK probes passed reset while audio idle, exactly one reset signal, all 60 integer readouts, eight reused legacy JSON shapes, current persistence, native history undo/redo and Clear edges. Source ownership review found child/readout lifetime consistent with pinned Rack 2.6.6 | Repair review complete. Native mouse interaction and full window lifecycle are outside these headless checks |
+| `/root/review_delay_retirement_repair` | `ab8aee19f6008e6d166c0aac1d10f581970cd5c0` | Normal cleanup mutant failed, but P2: a 500 ms observer pause could let the asynchronous source frame age out before retirement, causing a false positive or false failure. Production source unchanged | Replaced the special ownership assertion with explicitly stepped synchronous Renderer calls in `193ffcd`; existing 50 Engine cycles remain |
+| `/root/review_delay_deterministic_retirement` | `193ffcdf463cc02a99b413a8d04348b057818ba1` | No actionable findings. Normal and 500 ms observer-pause variants passed; both cleanup-only mutants failed with the required history-retirement message. No current display or strong observer owns the hidden frame; expiry is checked before Renderer destruction. Example preserves four modules and three identical connections, changing only two positions | Final test repair review complete. This ownership probe configures 60 frames and captures four; full-age behavior is covered separately by core tests. Native readability is recorded in validation |
+| `/root/review_delay_delivery_evidence` | `2dfc1c77dc7a488c31fe02c2d742de532adcc8e8` | Fixture hash and all three diagnostic snapshots matched; local links, privacy and prior-review scope passed. Found documentation classified current adapter graph-scan errors as cumulative | Wording now separates cumulative renderer/deadline counters from current adapter errors; numeric observations are unchanged. Screenshots were not independently inspected |
+
+The native comparison at runtime `9a33523` independently checked visible counts, Initialize/Undo and changing images at 1/15/60. [Validation](VALIDATION.md#adjustable-frame-delay-follow-on-18) separates those operator observations from deterministic temporal tests and cumulative diagnostic snapshots. No earlier fixed-delay stress result is attributed to this runtime.
 
 ## Experimental merge preparation
 

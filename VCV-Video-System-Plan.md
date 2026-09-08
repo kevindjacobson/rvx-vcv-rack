@@ -4,6 +4,8 @@ RVX is the project and plugin-suite name. The repository is `rvx-vcv-rack`. RVX 
 
 September 7, 2026. Status: full-release design remains proposed. The user explicitly approved building the six-module prototype in issue #13; its implementation, dependency setup and validation are authorized. See [prototype contract](docs/PROTOTYPE.md) for the current experiment and observed target. Unrun acceptance gates remain unverified.
 
+Adjustable Frame Delay is implemented as follow-on issue #18, preserving the prototype's one-frame default with a separate implementation and validation scope. The requested ordinary-audio waveform round trip is deferred in #16 until the prototype and shared signal/Syphon/NTSC prerequisites are ready; the preliminary notes merged from PR #17 are not a release commitment or implementation authorization.
+
 The companion [RVX LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
 
 **1. Intended outcome and scope**

@@ -34,26 +34,43 @@ bool validFormat(const Format& format) {
     return pixels <= kMaxPixels;
 }
 
-uint64_t estimatedFrameBytes(const Graph& graph, const Format& format) {
+uint64_t addFrameBytes(uint64_t total, uint64_t bytes) {
+    if (bytes > std::numeric_limits<uint64_t>::max() - total)
+        return std::numeric_limits<uint64_t>::max();
+    return total + bytes;
+}
+
+uint64_t currentFrameAllocationBytes(const Graph& graph, const Format& format) {
     const uint64_t pixels = static_cast<uint64_t>(format.width) * format.height;
     const uint64_t image = pixels * 4ull * sizeof(float);
     const uint64_t field = pixels * sizeof(float);
-    // Black plus unity/zero fields are shared working inputs. Count current-tick allocations here,
-    // then add every unique frame retained by the prior NodeDisplays below. I/O includes current
+    // Black plus unity/zero fields are shared working inputs. I/O includes current
     // receive/export copies plus one conservative backend-retained publication.
     uint64_t result = image + 2 * field;
     for (const auto& node : graph.nodes) {
         if (!node) continue;
         switch (node->kind) {
-        case Kind::TestImage: result += image + field; break;
-        case Kind::Processor: result += image + field; break;
-        case Kind::CvBridge: result += field; break;
-        case Kind::Delay: result += image; break;
+        case Kind::TestImage: result = addFrameBytes(result, image + field); break;
+        case Kind::Processor: result = addFrameBytes(result, image + field); break;
+        case Kind::CvBridge: result = addFrameBytes(result, field); break;
+        case Kind::Delay: break; // Its output aliases retained history or a shared input.
         case Kind::Monitor: break;
-        case Kind::VideoIo: result += 3 * image; break;
+        case Kind::VideoIo: result = addFrameBytes(result, 3 * image); break;
         }
-        if (result > kFrameBudgetBytes) return result;
+        if (result == std::numeric_limits<uint64_t>::max()) return result;
     }
+    return result;
+}
+
+uint64_t estimatedFrameBytes(const Graph& graph, const Format& format,
+                             const std::vector<FramePtr>& hiddenHistory,
+                             uint64_t retainedStateBytes, uint64_t reservedStateBytes) {
+    const uint64_t current = currentFrameAllocationBytes(graph, format);
+    // The exact branch covers old displays (including a prior larger format) and every hidden
+    // history without charging a shared immutable frame twice. The capacity branch is a
+    // conservative steady-state bound: current work, a retained generation, and all requested
+    // delay slots. Taking the maximum avoids charging actual history and its reservation twice.
+    uint64_t actual = current;
     std::unordered_set<const Frame*> retained;
     for (const auto& node : graph.nodes) {
         if (!node) continue;
@@ -61,11 +78,27 @@ uint64_t estimatedFrameBytes(const Graph& graph, const Format& format) {
         if (!display) continue;
         for (const auto& frame : display->outputs) {
             if (frame && retained.insert(frame.get()).second)
-                result += frame->pixels.size() * sizeof(float);
+                actual = addFrameBytes(actual, frame->pixels.size() * sizeof(float));
         }
         if (display->preview && retained.insert(display->preview.get()).second)
-            result += display->preview->pixels.size() * sizeof(float);
-        if (result > kFrameBudgetBytes) return result;
+            actual = addFrameBytes(actual, display->preview->pixels.size() * sizeof(float));
+    }
+    for (const auto& frame : hiddenHistory) {
+        if (frame && retained.insert(frame.get()).second)
+            actual = addFrameBytes(actual, frame->pixels.size() * sizeof(float));
+    }
+    actual = addFrameBytes(actual, retainedStateBytes);
+    uint64_t capacity = addFrameBytes(current, current);
+    capacity = addFrameBytes(capacity, reservedStateBytes);
+    return std::max(actual, capacity);
+}
+
+size_t uniqueFrameBytes(const std::vector<FramePtr>& frames) {
+    size_t result = 0;
+    std::unordered_set<const Frame*> counted;
+    for (const auto& frame : frames) {
+        if (frame && counted.insert(frame.get()).second)
+            result += frame->pixels.size() * sizeof(float);
     }
     return result;
 }
@@ -190,6 +223,13 @@ void appendStatus(std::string& status, const std::string& message) {
 
 } // namespace
 
+int normalizedDelayFrames(float value) noexcept {
+    if (!std::isfinite(value)) return kDefaultDelayFrames;
+    if (value <= static_cast<float>(kMinDelayFrames)) return kMinDelayFrames;
+    if (value >= static_cast<float>(kMaxDelayFrames)) return kMaxDelayFrames;
+    return static_cast<int>(std::lround(value));
+}
+
 void RenderTimingHistogram::observe(double milliseconds) noexcept {
     if (!(milliseconds >= 0.0))
         milliseconds = 0.0;
@@ -281,6 +321,9 @@ Node::Node(Kind nodeKind) : key(nextNodeKey.fetch_add(1, std::memory_order_relax
         params[0].store(1.f, std::memory_order_relaxed);
     if (kind == Kind::CvBridge)
         params[1].store(0.1f, std::memory_order_relaxed);
+    if (kind == Kind::Delay)
+        params[kDelayFramesParam].store(static_cast<float>(kDefaultDelayFrames),
+                                        std::memory_order_relaxed);
 }
 
 void Node::setIoSettings(IoSettings settings) {
@@ -303,7 +346,14 @@ void Node::publishDisplay(std::shared_ptr<const NodeDisplay> value) {
 
 struct Renderer::Impl {
     struct Binding { size_t source = 0; int output = 0; bool connected = false; };
-    struct DelayState { FramePtr history; bool clearPressed = false; };
+    struct DelayCapture { uint64_t tick = 0; FramePtr frame; };
+    struct DelayState {
+        std::deque<DelayCapture> history;
+        bool clearPressed = false;
+        bool haveTick = false;
+        uint64_t lastTick = 0;
+        int frames = kDefaultDelayFrames;
+    };
     struct TestState {
         double phase = 0;
         double lastSeconds = 0;
@@ -402,9 +452,88 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         if (node) live.insert(node->key);
     impl_->cleanup(live);
 
+    const size_t count = graph.nodes.size();
     const bool tooManyNodes = graph.nodes.size() > kMaxNodes;
     const bool formatIsValid = validFormat(format);
-    const uint64_t estimatedBytes = formatIsValid ? estimatedFrameBytes(graph, format) : 0;
+    if (formatIsValid) impl_->prepareFormat(format);
+
+    std::vector<bool> bypassed(count, false);
+    std::vector<int> delayFrames(count, kDefaultDelayFrames);
+    std::vector<bool> delayFramesFinite(count, true);
+    std::unordered_set<uint64_t> latchedDelays;
+    std::unordered_set<uint64_t> reservedBridges;
+    std::vector<FramePtr> hiddenHistory;
+    uint64_t retainedStateBytes = 0;
+    uint64_t reservedStateBytes = 0;
+    const uint64_t imageBytes = formatIsValid
+        ? static_cast<uint64_t>(format.width) * static_cast<uint64_t>(format.height) *
+              4ull * sizeof(float)
+        : 0;
+    for (size_t index = 0; index < count; ++index) {
+        const auto& node = graph.nodes[index];
+        if (!node) continue;
+        bypassed[index] = node->bypass.load(std::memory_order_relaxed);
+        if (node->kind == Kind::CvBridge) {
+            if (!reservedBridges.insert(node->key).second) continue;
+            if (bypassed[index]) {
+                auto found = impl_->bridges.find(node->key);
+                if (found != impl_->bridges.end()) found->second.samples.clear();
+            } else {
+                reservedStateBytes = addFrameBytes(
+                    reservedStateBytes, kMaxAudioHistory * sizeof(AudioSample));
+            }
+            continue;
+        }
+        if (node->kind != Kind::Delay) continue;
+
+        if (!latchedDelays.insert(node->key).second) {
+            delayFrames[index] = impl_->delays[node->key].frames;
+            continue;
+        }
+        const float rawFrames = node->params[kDelayFramesParam].load(std::memory_order_relaxed);
+        delayFrames[index] = normalizedDelayFrames(rawFrames);
+        delayFramesFinite[index] = std::isfinite(rawFrames);
+
+        auto& state = impl_->delays[node->key];
+        state.frames = delayFrames[index];
+        const float rawClear = node->params[kDelayClearParam].load(std::memory_order_relaxed);
+        const bool pressed = std::isfinite(rawClear) && rawClear >= 0.5f;
+        const bool reset = node->resets.exchange(0, std::memory_order_acq_rel) > 0;
+        const bool discontinuity = state.haveTick && tick <= state.lastTick;
+        const bool clear = reset || discontinuity || bypassed[index] ||
+                           (pressed && !state.clearPressed);
+        state.clearPressed = pressed;
+        state.haveTick = true;
+        state.lastTick = tick;
+        if (clear) state.history.clear();
+
+        // Retain the requested sample through the read phase, while dropping every older
+        // capture immediately when the count shrinks or the renderer jumps forward.
+        if (tick >= static_cast<uint64_t>(state.frames)) {
+            const uint64_t oldestNeeded = tick - static_cast<uint64_t>(state.frames);
+            while (!state.history.empty() && state.history.front().tick < oldestNeeded)
+                state.history.pop_front();
+        }
+        while (state.history.size() > static_cast<size_t>(state.frames))
+            state.history.pop_front();
+
+        if (!bypassed[index])
+            reservedStateBytes = addFrameBytes(
+                reservedStateBytes,
+                static_cast<uint64_t>(state.frames) * imageBytes);
+        for (const auto& capture : state.history)
+            if (capture.frame) hiddenHistory.push_back(capture.frame);
+    }
+    for (const auto& item : impl_->io)
+        if (item.second.lastReceived) hiddenHistory.push_back(item.second.lastReceived);
+    for (const auto& item : impl_->bridges)
+        retainedStateBytes = addFrameBytes(
+            retainedStateBytes, item.second.samples.size() * sizeof(AudioSample));
+
+    const uint64_t estimatedBytes = formatIsValid
+        ? estimatedFrameBytes(graph, format, hiddenHistory, retainedStateBytes,
+                              reservedStateBytes)
+        : 0;
     if (!formatIsValid || tooManyNodes || estimatedBytes > kFrameBudgetBytes) {
         ++report.errors;
         std::unordered_set<uint64_t> checkedPublishers;
@@ -436,13 +565,15 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 appendStatus(display->status, "backend stop failed");
             node->publishDisplay(display);
         }
+        // The estimate above includes future capacity reservations. Preserve frameBytes as an
+        // actual unique-retention diagnostic after rejected displays release their old frames.
+        report.frameBytes = uniqueFrameBytes(hiddenHistory) +
+                            static_cast<size_t>(retainedStateBytes);
         report.milliseconds = std::chrono::duration<double, std::milli>(
             std::chrono::steady_clock::now() - started).count();
         return report;
     }
-    impl_->prepareFormat(format);
 
-    const size_t count = graph.nodes.size();
     std::unordered_map<uint64_t, size_t> indices;
     indices.reserve(count);
     std::vector<bool> duplicate(count, false);
@@ -459,10 +590,6 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             ++report.errors;
         }
     }
-    std::vector<bool> bypassed(count, false);
-    for (size_t i = 0; i < count; ++i)
-        if (graph.nodes[i]) bypassed[i] = graph.nodes[i]->bypass.load(std::memory_order_relaxed);
-
     std::vector<std::array<Impl::Binding, 8>> inputs(count);
     std::vector<std::array<bool, 8>> inputInvalid(count);
     std::vector<std::vector<size_t>> dependents(count);
@@ -607,8 +734,15 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
     for (size_t index : order) {
         const auto& node = *graph.nodes[index];
         bool nonFiniteParameter = false;
-        for (const auto& parameter : node.params)
-            nonFiniteParameter |= !std::isfinite(parameter.load(std::memory_order_relaxed));
+        for (size_t parameterIndex = 0; parameterIndex < node.params.size(); ++parameterIndex) {
+            if (node.kind == Kind::Delay &&
+                parameterIndex == static_cast<size_t>(kDelayFramesParam)) {
+                nonFiniteParameter |= !delayFramesFinite[index];
+            } else {
+                nonFiniteParameter |= !std::isfinite(
+                    node.params[parameterIndex].load(std::memory_order_relaxed));
+            }
+        }
         if (nonFiniteParameter) {
             ++report.errors;
             appendStatus(statuses[index], "non-finite parameter");
@@ -918,15 +1052,25 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         }
         case Kind::Delay: {
             auto& state = impl_->delays[node.key];
-            const bool pressed = param(node, 0) >= 0.5f;
-            const bool clear = graph.nodes[index]->resets.exchange(0, std::memory_order_acq_rel) > 0 ||
-                               (pressed && !state.clearPressed);
-            state.clearPressed = pressed;
-            if (clear) state.history.reset();
-            if (bypassed[index])
-                outputs[index][0] = input(index, 0) ? input(index, 0) : black;
-            else
-                outputs[index][0] = state.history ? state.history : black;
+            if (bypassed[index]) {
+                const FramePtr immediate = input(index, 0);
+                outputs[index][0] = immediate && matchesFormat(*immediate, format, 4)
+                    ? immediate : black;
+                break;
+            }
+            FramePtr delayed;
+            if (tick >= static_cast<uint64_t>(state.frames)) {
+                const uint64_t target = tick - static_cast<uint64_t>(state.frames);
+                auto capture = std::lower_bound(
+                    state.history.begin(), state.history.end(), target,
+                    [](const Impl::DelayCapture& value, uint64_t requestedTick) {
+                        return value.tick < requestedTick;
+                    });
+                if (capture != state.history.end() && capture->tick == target)
+                    delayed = capture->frame;
+            }
+            if (!delayed) appendStatus(statuses[index], "waiting for history");
+            outputs[index][0] = delayed && matchesFormat(*delayed, format, 4) ? delayed : black;
             break;
         }
         case Kind::Monitor:
@@ -936,13 +1080,23 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         }
     }
 
-    // All active delays observed the old histories above. Only now may new histories be committed.
+    // All active delays observed the old histories above. Only now may current inputs be retained.
+    // Capture ticks are renderer metadata; source Frame.sequence remains untouched even when the
+    // source is itself delayed or repeats a frame.
     for (size_t index : order) {
         const auto& node = *graph.nodes[index];
         if (node.kind != Kind::Delay || bypassed[index]) continue;
         auto& state = impl_->delays[node.key];
         const FramePtr next = input(index, 0);
-        state.history = next && matchesFormat(*next, format, 4) ? next : black;
+        state.history.push_back({tick, next && matchesFormat(*next, format, 4) ? next : FramePtr{}});
+        while (state.history.size() > static_cast<size_t>(state.frames))
+            state.history.pop_front();
+        const uint64_t futureSpan = static_cast<uint64_t>(state.frames - 1);
+        if (tick >= futureSpan) {
+            const uint64_t oldestNext = tick - futureSpan;
+            while (!state.history.empty() && state.history.front().tick < oldestNext)
+                state.history.pop_front();
+        }
     }
 
     for (size_t index = 0; index < count; ++index) {
@@ -1010,7 +1164,10 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         countFrame(display->outputs[1]);
         countFrame(display->preview);
     }
-    for (const auto& item : impl_->delays) countFrame(item.second.history);
+    for (const auto& item : impl_->delays)
+        for (const auto& capture : item.second.history)
+            countFrame(capture.frame);
+    for (const auto& item : impl_->io) countFrame(item.second.lastReceived);
     for (const auto& item : impl_->bridges)
         report.frameBytes += item.second.samples.size() * sizeof(AudioSample);
 

@@ -119,6 +119,7 @@ int main() {
         auto source = std::make_shared<Node>(Kind::TestImage);
         auto processor = std::make_shared<Node>(Kind::Processor);
         auto delay = std::make_shared<Node>(Kind::Delay);
+        delay->params[kDelayFramesParam].store(static_cast<float>(1 + cycle % kMaxDelayFrames));
         auto monitor = std::make_shared<Node>(Kind::Monitor);
         auto io = std::make_shared<Node>(Kind::VideoIo);
         IoSettings ioSettings;
@@ -170,9 +171,52 @@ int main() {
         }
     }
 
+    // Drive this ownership assertion synchronously: a worker could otherwise age the
+    // watched frame out while the observer is descheduled, masking a cleanup leak.
+    // The Engine cycles above independently cover worker and backend lifetime boundaries.
+    {
+        Renderer historyRenderer;
+        auto historySource = std::make_shared<Node>(Kind::TestImage);
+        auto historyDelay = std::make_shared<Node>(Kind::Delay);
+        auto historyMonitor = std::make_shared<Node>(Kind::Monitor);
+        historyDelay->params[kDelayFramesParam].store(static_cast<float>(kMaxDelayFrames));
+        Graph historyGraph{{historySource, historyDelay, historyMonitor},
+                           {connect(historySource, 0, historyDelay, 0),
+                            connect(historyDelay, 0, historyMonitor, 0)}, cycles + 1};
+        if (historyRenderer.render(historyGraph, format, 0, 0.0).errors)
+            return fail("maximum delay source did not render");
+        std::weak_ptr<const Frame> retiredHistoryFrame = historySource->display()->outputs[0];
+        const Frame* capturedAddress = historySource->display()->outputs[0].get();
+        if (retiredHistoryFrame.expired())
+            return fail("maximum delay source did not produce a frame");
+        for (uint64_t tick = 1; tick <= 3; ++tick) {
+            const double seconds = static_cast<double>(tick) *
+                format.rateDenominator / format.rateNumerator;
+            if (historyRenderer.render(historyGraph, format, tick, seconds).errors)
+                return fail("maximum delay warmup did not render");
+        }
+        if (historySource->display()->outputs[0].get() == capturedAddress ||
+            historyDelay->display()->outputs[0].get() == capturedAddress ||
+            historyMonitor->display()->preview.get() == capturedAddress)
+            return fail("watched history frame is still visible");
+        if (retiredHistoryFrame.expired())
+            return fail("maximum delay did not retain a hidden source frame");
+
+        historyGraph = Graph{};
+        historySource.reset();
+        historyDelay.reset();
+        historyMonitor.reset();
+        if (historyRenderer.render(historyGraph, format, 4,
+                4.0 * format.rateDenominator / format.rateNumerator).errors)
+            return fail("maximum history retirement did not render");
+        // Check before destroying the renderer: its destructor must not conceal failed cleanup.
+        if (!retiredHistoryFrame.expired())
+            return fail("maximum delay history remained owned after graph retirement");
+    }
+
     // Leave one backend live so stop(), rather than graph replacement, must release it.
     auto finalIo = std::make_shared<Node>(Kind::VideoIo);
-    engine.submit(Graph{{finalIo}, {}, cycles + 1});
+    engine.submit(Graph{{finalIo}, {}, cycles + 2});
     if (!waitUntil([&] {
             return counts->constructed.load(std::memory_order_acquire) == cycles + 1;
         }))

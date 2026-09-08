@@ -35,11 +35,41 @@ The corrected source-bound relay at `8d0f363` separately passed two 30-second na
 
 The user additionally requested video → ordinary Rack audio waveform → video conversion with NTSC-like behavior. New issue #16 tracks the focused specification, coordinated with #3/#5/#7/#9 and the Memory Palace sheet. Real-time audio-rate conversion, time-scaled composite transport and high-rate RVX composite must remain distinct; no claim of full-bandwidth NTSC through ordinary audio wires is made. The open issue set now contains 12 issues (#1–#9, #11, #13, #16).
 
-The source-bound rejection regressions at `6224613` and sanitized evidence at `892c3ec` both passed fresh independent review; exact scope is in [REVIEWS.md](REVIEWS.md). The user then explicitly deferred the video/audio waveform feature. Issue #16 is retained as future implementation work, sequenced after the prototype and shared signal/NTSC prerequisites; PR #17 is parked as draft preliminary planning notes. It must not close that implementation issue or block #13. No waveform implementation is underway.
+The source-bound rejection regressions at `6224613` and sanitized evidence at `892c3ec` both passed fresh independent review; exact scope is in [REVIEWS.md](REVIEWS.md). The user then explicitly deferred the video/audio waveform feature. Issue #16 is retained as future implementation work, sequenced after the prototype and shared signal/NTSC prerequisites. At this checkpoint, PR #17 was parked as draft preliminary planning notes; it could not close that implementation issue or block #13. No waveform implementation was underway.
 
+
+## Adjustable Frame Delay kickoff
+
+Issue #18 is a focused follow-on prompted by the user's missing frame-count question while continuing prototype work. The initial #13 contract deliberately required one frame; its historical results remain tied to that runtime. New work uses `issue-18-frame-count` stacked on prototype checkpoint `413a149`, with independent `issue-18-delay-engine` and `issue-18-delay-panel` worktrees. The prototype branch remains a separate reviewable checkpoint; no merge is authorized by this development task.
+
+Read all 13 open issues (#1–#9, #11, #13, #16, #18) and PRs #10/#12/#14/#15/#17 against unchanged main `e46ae395909d0cf023b57dc00fda0ab9c38baaa1`. #2's shared 512 MiB budget and #3's tick/feedback rules constrain the variable history. #6 may later reuse bounded storage, but its timing, capture, freeze and four routings are not implemented by this utility. #4/#5 routing and Syphon boundaries are unchanged. #7/#8/#9 retain broader specification scope. #1/#11 require a focused PR, actual-base reconciliation and fresh independent review. At this checkpoint, waveform implementation #16 was explicitly deferred and PR #17 was parked as draft notes; it was not a prerequisite of the prototype, delay utility or shared specifications. Repository remained private and no PR had merged.
+
+
+## Adjustable Frame Delay delivery audit
+
+Draft PR [#19](https://github.com/kevindjacobson/rvx-vcv-rack/pull/19) targets `issue-13-prototype` at `413a14991168cbd6ff69785fef90cfa643ac2030` to keep #18's change focused. Runtime `9a33523` has separate core and Rack reviews; final history-retirement test `193ffcd` passed a fresh review, including paused-observer and cleanup-only mutation cases. Evidence at `2dfc1c7` received a separate fresh review; its wording correction distinguishes current adapter errors from cumulative renderer/deadline counters. Earlier #13 fixed-delay stress is not attributed to the new runtime.
+
+Re-read all 13 open issues (#1–#9, #11, #13, #16, #18), the five existing PR bodies and the new #19 delivery body against unchanged main `e46ae395909d0cf023b57dc00fda0ab9c38baaa1`. The current PR set is #10/#12/#14/#15/#17/#19; #10/#14/#17/#19 are draft, and #12/#15 are ready but unmerged.
+
+| Issues | Final reconciliation |
+|---|---|
+| #1, #11 | Clarified dependent draft PRs may target a prerequisite branch, then must wait for its merge, retarget/reconcile against actual main, re-audit and receive fresh review before readiness/merge. PR #10 now contains the matching three-file correction at `030f48ab6dab8fbd8ebecf984ae1d19516adb209`, freshly reviewed by `/root/review_dependent_draft_workflow` with no actionable findings; its two ENGINEERING.md links still require policy #12 before readiness |
+| #2 | Updated the guard's conservative requested-capacity versus actual retained/current-work distinction and separate actual-byte reporting. Native 1/15/60 observations are scoped to the four-node fixture, not earlier mixed stress |
+| #3 | Recorded exact capture-tick ages, one-frame legacy/default, clear/reset/change/bypass/discontinuity semantics and recovery. Progressive image ticks remain distinct from NTSC fields; no audio or Syphon adapter code changed |
+| #13 | Linked the separately implemented #18 follow-on and review/native evidence while preserving #14's historical one-frame scope and all outstanding host/audio/lifecycle/combined gates |
+| #18 | Updated completed core/storage/review/package criteria and linked #19. Kept its first combined interaction criterion unchecked for the outstanding native mouse knob/context-menu check; actual SDK parameter and persistence behavior passed |
+| #4, #5, #6, #7, #8, #9, #16 | Read and unchanged: native routing/I/O scope, Memory Palace fidelity, broader sheets/approval, reuse/review policy and deferred waveform sequencing remain valid |
+
+The core reuses shared immutable frames, graph evaluation, diagnostic accounting and normalization across the renderer and Rack panel. It adds no rendering allocation/wait to the audio callback. README contains installation, quick start and modules only. No acceptance threshold changed. Repository remains private and no merge occurred; #19 cannot bypass its prototype dependency. Native mouse editing and the broader #13 acceptance gaps remain explicit follow-up work.
 
 ## Experimental merge reconciliation
 
 The user explicitly requested review and merge of all existing PRs. Current main `d570e8a59b170b4ddb94fd838e64e5e47fbf8316` contains the README notice, engineering policy, workflow, Memory Palace specification and deferred waveform notes. All 11 open issue bodies (#2–#5, #7–#9, #13, #16, #18, #20) and remaining PRs #14/#19 were read after those merges. Historical entries above describe their named revisions.
 
 The prototype integration preserves the observed target, source contracts, exact notice and all unrun gates. I/O transition repairs through `3115d57` satisfy existing #5/#13 behavior without changing the signal contract. Issue #13 stays open for native lifecycle, physical reconnect, latency and complete combined acceptance; merging the experimental source does not complete those criteria. Adjustable delay #18 follows this integrated runtime and needs its own actual-main review. Memory Palace history counts completed images, while the adjustable utility counts scheduled capture ticks with black for missing ages. #3/#7/#8/#9 retain that distinction and unresolved fidelity gates. The notes in merged PR #17 remain preliminary; #16 implementation stays deferred. Design #20 consumes the reconciled six-panel controls separately. Final review and post-merge reconciliation belong to the PR/issue records.
+
+## Adjustable delay actual-main reconciliation
+
+This preparation integrates actual main `ccce071305e9822a80a9be4376e99ee239172bf8`, where prototype PR #14 landed, into adjustable-delay base `3b75a2ad262b613022bd0c462cf1382a384f7a35`. PR #19 no longer waits on an unmerged prototype branch, but still requires this integrated tree to pass validation, the issue audit and a fresh exact-base review before readiness or merge.
+
+The post-prototype-merge audit covered all 11 open issues (#2–#5, #7–#9, #13, #16, #18, #20). The combined tree preserves the adjustable 1–60-frame history, legacy one-frame default, shared 512 MiB guard, visible controls, metadata and historical native evidence, together with the prototype's source-selection cache and publisher teardown repairs. Memory Palace retains completed-image ages; Frame Delay retains scheduled capture-tick ages with transparent black for a missing requested age. Merged PR #17 remains preliminary notes and #16 implementation remains deferred. Native knob dragging/context-menu entry and all broader #13 host, physical-device, latency and combined-acceptance gates remain unverified.
