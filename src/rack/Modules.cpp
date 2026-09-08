@@ -209,6 +209,7 @@ struct VideoIoModule : Module {
     std::string defaultPublisherName;
     int64_t publisherOwnerModuleId = -1;
     bool restoredDefaultPublisher = false;
+    bool publisherRestorePending = false;
 
     VideoIoModule() : Module(Kind::VideoIo) {
         config(0, NUM_INPUTS, NUM_OUTPUTS, 0);
@@ -237,11 +238,13 @@ struct VideoIoModule : Module {
         attachNode(e, automatic ? &requestedDefault : NULL);
         if (automatic)
             defaultPublisherName = requestedDefault;
+        publisherRestorePending = false;
     }
 
     void prepareRestoredState() override {
-        if (!registered_)
+        if (!registered_ || !publisherRestorePending)
             return;
+        publisherRestorePending = false;
         IoSettings io = node_->ioSettings();
         if (restoredDefaultPublisher && publisherOwnerModuleId >= 0
             && publisherOwnerModuleId != id) {
@@ -275,6 +278,11 @@ struct VideoIoModule : Module {
 
     void readData(json_t* rootJ, int schema) override {
         (void) schema;
+        // Native preset/history JSON may omit I/O data or contain only source
+        // settings. Neither case changes the publisher's automatic/custom identity.
+        publisherRestorePending = json_is_string(json_object_get(rootJ, "publisherName"))
+            || json_is_string(json_object_get(rootJ, "defaultPublisherName"))
+            || json_is_integer(json_object_get(rootJ, "publisherOwnerModuleId"));
         IoSettings io = node_->ioSettings();
         json_t* value = json_object_get(rootJ, "sourceId");
         if (value && json_is_string(value)) io.sourceId = json_string_value(value);

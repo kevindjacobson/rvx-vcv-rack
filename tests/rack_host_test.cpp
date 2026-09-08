@@ -146,6 +146,38 @@ int main() {
         assert(source->node()->params[1].load() == 2.f);
         assert(source->node()->resets.load() == 1);
 
+        // A native-only restore must not reinterpret a live user rename as
+        // automatic publisher metadata, including when the name collides.
+        for (int colliding = 0; colliding < 2; ++colliding) {
+            restored = moduleJson("VideoIo", savedIo("RVX", "RVX", 300));
+            ioA->fromJson(restored);
+            json_decref(restored);
+            const std::string defaultBefore = ioA->defaultPublisherName;
+            rvx::IoSettings renamed = ioA->node()->ioSettings();
+            renamed.publisherName = "Program";
+            ioA->node()->setIoSettings(renamed);
+            ServiceRegistry::instance().updatePublisherName(ioA->node(), NULL);
+            if (colliding) {
+                renamed = ioB->node()->ioSettings();
+                renamed.publisherName = "Program";
+                ioB->node()->setIoSettings(renamed);
+                ServiceRegistry::instance().updatePublisherName(ioB->node(), NULL);
+            }
+            restored = moduleJson("VideoIo", NULL, true);
+            ioA->fromJson(restored);
+            json_decref(restored);
+            assert(ioA->node()->ioSettings().publisherName == "Program");
+            assert(ioA->defaultPublisherName == defaultBefore);
+            assert(ioA->node()->bypass.load());
+            assert(ServiceRegistry::instance().publisherNameConflict(ioA->node()->key)
+                == static_cast<bool>(colliding));
+        }
+
+        // Restore ioB's original automatic reservation for the existing cases.
+        restored = moduleJson("VideoIo", savedIo("RVX 2", "RVX 2", 301));
+        ioB->fromJson(restored);
+        json_decref(restored);
+
         // Existing-module state restore re-reserves automatic names and keeps
         // explicit duplicate names visible instead of silently rewriting them.
         restored = moduleJson("VideoIo", savedIo("RVX 2", "RVX 2", 300));
