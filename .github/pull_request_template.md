@@ -30,7 +30,7 @@ Closes #<issue-number>
 - [ ] The issue's acceptance criteria are satisfied and supported by the validation above.
 - [ ] The open-issue audit is current and affected assumptions, specifications and dependencies are reconciled.
 - [ ] Code quality and reuse have been reviewed alongside the delivered behavior, as applicable to this change.
-- [ ] The change respects the project's planning boundary; any plugin implementation has explicit user approval to begin coding.
+- [ ] Any plugin implementation stays within its recorded explicit user approval; unresolved broader release and fidelity work remains proposed.
 - [ ] A fresh independent reviewer assessed the issue, acceptance criteria, base/head, relevant files and test evidence before readiness; substantive fixes received another fresh review.
 
 <!-- Do not merge or enable auto-merge unless the user requests it. -->

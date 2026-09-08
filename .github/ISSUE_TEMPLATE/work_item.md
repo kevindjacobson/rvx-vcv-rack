@@ -42,7 +42,7 @@ title: ''
 
 **Work phase**
 
-<!-- State "Planning/research/documentation" or "Implementation". For implementation, identify the user's explicit coding approval or state "Blocked pending coding approval". Creating this issue does not authorize coding. -->
+<!-- State "Planning/research/documentation" or "Implementation". For implementation, identify the user's explicit approval and its scope, or state "Blocked pending coding approval". A recorded approval persists for its scope; creating this issue does not grant or broaden it. -->
 
 **Worktree and review plan**
 
