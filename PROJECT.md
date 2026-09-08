@@ -6,6 +6,8 @@ The project is in research and specification. Plugin implementation has not star
 
 Confirmed requirements are Mac support; close reproduction of LZX controls, ports and analog signal behavior; Memory Palace processing; NTSC and dirty mixing; and bidirectional Syphon with selection modeled on Rack audio I/O.
 
+The user also requests video → ordinary Rack audio waveform → video conversion with NTSC-like behavior. The [video/audio round-trip requirement](docs/VIDEO-AUDIO-ROUNDTRIP.md) separates proposed slowed composite and real-time coarse raster modes from the high-rate RVX composite path, with explicit bandwidth, timing and information-loss limits (issue #16).
+
 Outstanding planning work includes target Mac/Rack details, first-release control/port sheets, reference revisions and fidelity criteria, and user review of the completed specification. Repository and documentation work does not authorize plugin implementation.
 
 - [RVX implementation plan](VCV-Video-System-Plan.md): architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, effort estimates and outstanding decisions.

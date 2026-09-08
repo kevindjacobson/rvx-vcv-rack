@@ -136,6 +136,8 @@ Completion requires tests for all four routings, exact delay indexing, capture/f
 
 **8. NTSC and dirty mixing**
 
+The user-requested video → ordinary Rack waveform → video path is specified in the [video/audio round-trip requirement](docs/VIDEO-AUDIO-ROUNDTRIP.md) (issue #16). Its proposed slowed composite and real-time coarse raster modes supplement this subsystem; ordinary audio cables cannot carry full-bandwidth NTSC at normal speed. The broader composite specification and fidelity gates remain open.
+
 Treat this as a patchable subsystem with three modules: Encoder, Dirty Mixer and Receiver. A convenience combined panel can come later. Keep clean RGB mixing available separately.
 
 | Module | Proposed controls and semantics |
