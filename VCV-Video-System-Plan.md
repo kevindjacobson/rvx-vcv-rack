@@ -41,7 +41,7 @@ There is useful precedent, but the research did not identify a complete publicly
 
 Recommendation: own the Rack adapter, video graph, timing, and signal model. Reuse a suitable rendering library and the Syphon SDK after compatibility checks. Keep NTSC algorithms behind a narrow interface so using Rust or translating selected algorithms does not dictate the whole engine. ISF's documented [persistent buffers and multiple passes](https://docs.isf.video/ref_multipass) are useful building blocks for effects with memory; they do not specify our complete patch graph or hardware matching.
 
-Record exact dependency revisions and applicable licenses when selecting code. No contacting authors, joining private betas, or publishing a project is part of the current planning work.
+Record exact dependency revisions and applicable licenses when selecting code. The user has authorized the private GitHub repository and its issue/PR workflow. Contacting external authors, joining private betas and making the repository public require a separate request.
 
 **3. Signal model and patching**
 
@@ -67,6 +67,8 @@ Analog fidelity is a core architectural requirement. A scalar video field repres
 Use inexpensive pointwise GPU processing where it preserves the specified behavior, and ordered raster processing for stateful analog behavior. Image sampling/interpolation and waveform resampling are different operations. Timing metadata must survive conversion between them. The earliest engine proof must include a small raster-state calibration path, so later analog modules do not require replacing an image-only foundation.
 
 **4. Shared engine and concurrency**
+
+Code structure and reuse are deliverables alongside the running instrument. Follow the [engineering review policy](ENGINEERING.md) for shared contracts, algorithm/UI separation, validation and maintainability. Every component specification must identify existing primitives it can reuse, its consumers and any behavior that requires a distinct implementation. Validate common operators across their consumers; do not erase LZX module differences to simplify an abstraction.
 
 One engine instance belongs to one Rack patch/context. Avoid an unrestricted process-wide singleton: multiple instances, especially in a future DAW target, must not exchange resources accidentally.
 
@@ -130,6 +132,8 @@ The detailed I/O requirements in the feasibility report remain part of this plan
 
 **7. Memory Palace-inspired module**
 
+The detailed [Memory Palace behavior sheet](docs/MEMORY-PALACE.md) selects V19 / package 1.9.0 as a historical comparison target and records newer firmware differences. It separates primary-source facts from proposed RVX routing, control laws, progressive delay semantics and unrun acceptance gates. In particular, the guide's frame-delay range does not resolve the hardware's field-rate recursion or contextual media controls; those remain explicit fidelity questions.
+
 Reference behavior includes four paths: Warp transforms within keyed feedback; Paint transforms incoming imagery before accumulation; Scene composites a transformed foreground; Ghost combines different moments. The guide also documents luma/chroma/alpha keys, media/live routing, a 0–60-frame delay, motion controls, tiling and mirroring. Freeze captures the input and subsequent Freeze events capture another single frame; Clear exits that frozen state. The primary controls are sampled at frame rate. These are requirements to compare against the [Memory Palace guide](https://community.lzxindustries.net/t/memory-palace-user-guide/884), with firmware revision selected before making a fidelity claim.
 
 Implementation proposal: expose an integrated memory instrument backed by reusable delay, transform and key operators. Provide separately named actions for unfreezing and erasing canvas/history, so the two operations cannot be confused. Document zero-delay feedforward separately from the mandatory causal delay in a feedback loop. Default patch recall saves settings and starts with empty live history; embedding captured state is an explicit option.
@@ -174,7 +178,9 @@ For each module before its coding stage, produce a behavior sheet containing: so
 
 **10. Milestones and acceptance gates**
 
-The user has approved the bounded issue #13 prototype. Broader implementation milestones remain subject to the completed release plan and its approval. A technical gate means testing a stated uncertainty; it does not authorize silently dropping a requested feature.
+Implementation milestones require explicit user approval for their corresponding scope. Issue #13 has that approval for its recorded six-module prototype; the remaining milestones still await approval of the broader plan. A technical gate means testing a stated uncertainty; it does not authorize silently dropping a requested feature.
+
+Every work item also follows the issue consistency and code-quality review in [ENGINEERING.md](ENGINEERING.md). Audit all open issues before work, before PR readiness/merge and after each merge. Reconcile changed assumptions, interfaces, evidence, acceptance criteria and dependencies; record the reviewed revisions. Each milestone's exit criteria include the quality of its source code and shared contracts as well as visible behavior and performance.
 
 | Milestone | Deliverable | Exit criteria |
 |---|---|---|
@@ -226,4 +232,4 @@ This is a substantial graphics/audio application inside Rack. For one experience
 | Hardware fidelity reference | Functional equivalence until a specific reference is chosen | Named modules/firmware/receiver and available evidence |
 | Distribution | Private development builds initially | Public/commercial packaging and dependency choices can be decided before distribution |
 
-The architecture plan is reviewable now. For approval of the broader release scope, incorporate the target-Mac confirmation and finish the first-release behavior sheets, including a control/port table and representative patch for the memory and composite modules. Keep unresolved empirical questions attached to the explicit implementation gates above. Approval of this plan should never be represented as proof that those experiments have already passed.
+The architecture plan is reviewable now. Before requesting approval to expand coding beyond the issue #13 prototype, incorporate the remaining target-Mac decisions and finish the first-release behavior sheets, including a control/port table and representative patch for the memory and composite modules. Keep unresolved empirical questions attached to the explicit implementation gates above. Approval of this plan should never be represented as proof that those experiments have already passed.
