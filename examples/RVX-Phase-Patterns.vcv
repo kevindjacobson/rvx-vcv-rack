@@ -1,0 +1,188 @@
+{
+  "version": "2.6.6",
+  "zoom": 0.75,
+  "modules": [
+    {
+      "id": 300,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "pos": [
+        0,
+        0
+      ],
+      "params": [
+        {
+          "id": 0,
+          "value": 0.0
+        },
+        {
+          "id": 1,
+          "value": 0.15
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      }
+    },
+    {
+      "id": 301,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "pos": [
+        12,
+        0
+      ],
+      "params": [],
+      "data": {
+        "rvxSchema": 1
+      }
+    },
+    {
+      "id": 302,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "pos": [
+        28,
+        0
+      ],
+      "params": [
+        {
+          "id": 0,
+          "value": 1.0
+        },
+        {
+          "id": 1,
+          "value": 0.15
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      }
+    },
+    {
+      "id": 303,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "pos": [
+        40,
+        0
+      ],
+      "params": [],
+      "data": {
+        "rvxSchema": 1
+      }
+    },
+    {
+      "id": 304,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "pos": [
+        0,
+        1
+      ],
+      "params": [
+        {
+          "id": 0,
+          "value": 2.0
+        },
+        {
+          "id": 1,
+          "value": 0.15
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      }
+    },
+    {
+      "id": 305,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "pos": [
+        12,
+        1
+      ],
+      "params": [],
+      "data": {
+        "rvxSchema": 1
+      }
+    },
+    {
+      "id": 306,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "pos": [
+        28,
+        1
+      ],
+      "params": [
+        {
+          "id": 0,
+          "value": 3.0
+        },
+        {
+          "id": 1,
+          "value": 0.15
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      }
+    },
+    {
+      "id": 307,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "pos": [
+        40,
+        1
+      ],
+      "params": [],
+      "data": {
+        "rvxSchema": 1
+      }
+    }
+  ],
+  "cables": [
+    {
+      "id": 1300,
+      "outputModuleId": 300,
+      "outputId": 0,
+      "inputModuleId": 301,
+      "inputId": 0,
+      "color": "#4dc9ff"
+    },
+    {
+      "id": 1301,
+      "outputModuleId": 302,
+      "outputId": 0,
+      "inputModuleId": 303,
+      "inputId": 0,
+      "color": "#4dc9ff"
+    },
+    {
+      "id": 1302,
+      "outputModuleId": 304,
+      "outputId": 0,
+      "inputModuleId": 305,
+      "inputId": 0,
+      "color": "#4dc9ff"
+    },
+    {
+      "id": 1303,
+      "outputModuleId": 306,
+      "outputId": 0,
+      "inputModuleId": 307,
+      "inputId": 0,
+      "color": "#4dc9ff"
+    }
+  ]
+}
