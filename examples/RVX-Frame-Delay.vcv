@@ -10,12 +10,12 @@
     },
     {
       "id": 701, "plugin": "RVX", "model": "VideoMonitor", "version": "2.0.0",
-      "params": [], "data": {"rvxSchema": 1}, "pos": [12, 0]
+      "params": [], "data": {"rvxSchema": 1}, "pos": [22, 0]
     },
     {
       "id": 702, "plugin": "RVX", "model": "FrameDelay", "version": "2.0.0",
       "params": [{"id": 0, "value": 0.0}, {"id": 1, "value": 15.0}],
-      "data": {"rvxSchema": 1}, "pos": [28, 0]
+      "data": {"rvxSchema": 1}, "pos": [12, 0]
     },
     {
       "id": 703, "plugin": "RVX", "model": "VideoMonitor", "version": "2.0.0",
