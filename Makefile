@@ -10,7 +10,7 @@ CPP_SOURCES := $(wildcard src/*.cpp src/core/*.cpp src/rack/*.cpp)
 MM_SOURCES := $(wildcard src/io/*.mm)
 OBJECTS := $(patsubst %.cpp,build/%.o,$(CPP_SOURCES)) $(patsubst %.mm,build/%.o,$(MM_SOURCES))
 
-.PHONY: all deps check-sdk test test-syphon benchmark dist install clean
+.PHONY: all deps check-sdk test test-lifecycle test-syphon benchmark dist install clean
 all: plugin.dylib
 
 deps:
@@ -39,6 +39,13 @@ build/core-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.hpp t
 
 test: build/core-test
 	./build/core-test
+
+build/lifecycle-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.hpp tests/lifecycle_test.cpp
+	@mkdir -p build
+	$(CXX) -std=c++17 -O2 -g -Wall -Wextra -pthread src/core/Video.cpp tests/lifecycle_test.cpp -o $@
+
+test-lifecycle: build/lifecycle-test
+	./build/lifecycle-test
 
 build/benchmark: src/core/Video.cpp src/core/Video.hpp tests/benchmark.cpp
 	@mkdir -p build
