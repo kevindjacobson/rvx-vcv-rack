@@ -2,7 +2,7 @@
 
 RVX is the project and plugin-suite name. The repository is `rvx-vcv-rack`. RVX provides analog video synthesis for VCV Rack on Mac, using LZX hardware as the functional reference.
 
-September 7, 2026. Status: proposed design, awaiting user review. Research and documentation only; implementation, prototype builds, and dependency installation have not begun. Coding starts only after the user approves the plan.
+September 7, 2026. Status: proposed first-release design, awaiting user review. The user separately approved the six-module architecture prototype tracked by issue #13 on September 7, 2026, including its implementation, dependency setup and validation. That scoped approval does not approve broader release work or establish that unresolved empirical and fidelity gates have passed.
 
 The companion [RVX LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
 
@@ -174,7 +174,7 @@ For each module before its coding stage, produce a behavior sheet containing: so
 
 **10. Milestones and acceptance gates**
 
-All implementation milestones below occur after plan approval. A technical gate means testing a stated uncertainty; it does not authorize silently dropping a requested feature.
+Implementation milestones require explicit user approval for their corresponding scope. Issue #13 has that approval for its recorded six-module prototype; the remaining milestones still await approval of the broader plan. A technical gate means testing a stated uncertainty; it does not authorize silently dropping a requested feature.
 
 Every work item also follows the issue consistency and code-quality review in [ENGINEERING.md](ENGINEERING.md). Audit all open issues before work, before PR readiness/merge and after each merge. Reconcile changed assumptions, interfaces, evidence, acceptance criteria and dependencies; record the reviewed revisions. Each milestone's exit criteria include the quality of its source code and shared contracts as well as visible behavior and performance.
 
@@ -228,4 +228,4 @@ This is a substantial graphics/audio application inside Rack. For one experience
 | Hardware fidelity reference | Functional equivalence until a specific reference is chosen | Named modules/firmware/receiver and available evidence |
 | Distribution | Private development builds initially | Public/commercial packaging and dependency choices can be decided before distribution |
 
-The architecture plan is reviewable now. Before requesting final permission to code, incorporate the target-Mac answer and finish the first-release behavior sheets, including a control/port table and representative patch for the memory and composite modules. Keep unresolved empirical questions attached to the explicit implementation gates above. Approval of this plan should never be represented as proof that those experiments have already passed.
+The architecture plan is reviewable now. Before requesting approval to expand coding beyond the issue #13 prototype, incorporate the remaining target-Mac decisions and finish the first-release behavior sheets, including a control/port table and representative patch for the memory and composite modules. Keep unresolved empirical questions attached to the explicit implementation gates above. Approval of this plan should never be represented as proof that those experiments have already passed.

@@ -1,7 +1,7 @@
 # RVX — project instructions
 
 - Use RVX as the project and plugin-suite name and `rvx-vcv-rack` as the repository name and directory. Preserve the actual names of referenced LZX products, VCV Rack, and third-party projects.
-- This project is in planning and research. Do not begin plugin implementation, scaffolding, prototype builds, or dependency installation until the user explicitly approves coding. Creating and maintaining this repository and its planning documents is authorized.
+- Planning and research remain active. Begin plugin implementation, scaffolding, prototype builds, or dependency installation only within a scope the user has explicitly approved. Approval for that scope persists and must not be requested again; it does not approve broader release or fidelity work. Creating and maintaining this repository and its planning documents is authorized.
 - The user prefers close reproduction of LZX controls, ports and behavior, with analog video signal behavior preserved wherever practical. Record approximation limits explicitly.
 - Mac and bidirectional Syphon are required. Syphon selection should feel familiar to users of Rack audio device selection. Do not postpone Syphon beyond the first usable release.
 - Preserve Memory Palace and dirty NTSC mixing as explicit requirements. Do not substitute a generic feedback or VHS effect without identifying the differences.

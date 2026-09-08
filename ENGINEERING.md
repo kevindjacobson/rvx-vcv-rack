@@ -2,7 +2,7 @@
 
 RVX's source code is a deliverable alongside the working product. Completion requires understandable, maintainable code with useful reuse boundaries, supported behavior and appropriate validation. A working visual result alone does not establish that a change is ready.
 
-This policy applies to research, specifications and eventual implementation. Plugin coding still requires the user's explicit approval of the complete plan. Repository visibility remains private unless the user requests a change.
+This policy applies to research, specifications and implementation. Plugin coding requires the user's explicit approval for the corresponding scope. A focused prototype can be approved before the complete release plan; that approval persists for its recorded scope and does not authorize broader release or fidelity work. Repository visibility remains private unless the user requests a change.
 
 **Audit the open issues**
 
@@ -35,7 +35,7 @@ Ask the reviewer to look for correctness and regression risks, inconsistent assu
 
 Record the review agent, reviewed revisions, findings and their resolution in the PR, including an explicit result when no actionable findings remain. Fix findings in the issue worktree. Substantive fixes or integration changes require another newly spawned reviewer without inherited history. Supply current requirements and changed evidence to that fresh reviewer; verify prior findings separately so their resolution is not lost. Purely mechanical edits can use a targeted recheck, but any doubt about behavior, contracts or acceptance criteria requires fresh review. Re-run appropriate checks after fixes.
 
-Independent review informs readiness; it does not authorize merging or plugin coding. The orchestrator reconciles the review with the current issue audit and the actual diff before presenting the PR. Re-audit after merge as described above.
+Independent review informs readiness; it does not authorize merging or expand the approved coding scope. The orchestrator reconciles the review with the current issue audit and the actual diff before presenting the PR. Re-audit after merge as described above.
 
 **Review source code as a deliverable**
 
