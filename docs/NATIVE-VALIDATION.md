@@ -25,7 +25,7 @@ make test-native-coreaudio
 make test-native-syphon-path
 ```
 
-The CoreAudio smoke test observes the current default output for two seconds. The Syphon smoke test publishes a process-ID-qualified private source, receives it through the RVX backend for two seconds, and retires the source on exit. Both targets also check rejected zero, over-limit and incomplete command lines. Durations must be greater than zero and no more than 3600 seconds.
+The CoreAudio target first runs pure selector fixtures covering numeric exact names, transient ID selection, duplicate names and malformed IDs without querying live devices. It then observes the current default output for two seconds. The Syphon smoke test publishes a process-ID-qualified private source, receives it through the RVX backend for two seconds, and retires the source on exit. Both targets also check rejected zero, over-limit and incomplete command lines. Durations must be greater than zero and no more than 3600 seconds.
 
 ## CoreAudio observation
 

@@ -84,6 +84,12 @@ build/native-coreaudio-probe: tests/native_coreaudio_probe.cpp tests/NativeValid
 	$(CXX) $(NATIVE_CXXFLAGS) tests/native_coreaudio_probe.cpp \
 		-framework CoreAudio -framework CoreFoundation -o $@
 
+build/native-coreaudio-selector-test: tests/native_coreaudio_probe.cpp tests/NativeValidationJson.hpp
+	@mkdir -p build
+	$(CXX) $(NATIVE_CXXFLAGS) -Wno-unused-function -DRVX_COREAUDIO_SELECTOR_TEST \
+		tests/native_coreaudio_probe.cpp \
+		-framework CoreAudio -framework CoreFoundation -o $@
+
 build/native-syphon-path-probe: src/io/SyphonBackend.mm src/io/VideoBackend.hpp \
 		src/core/Video.hpp tests/native_syphon_path_probe.mm \
 		tests/NativeValidationJson.hpp $(SYPHON_LIB)
@@ -95,7 +101,8 @@ build/native-syphon-path-probe: src/io/SyphonBackend.mm src/io/VideoBackend.hpp 
 
 native-validation-tools: build/native-coreaudio-probe build/native-syphon-path-probe
 
-test-native-coreaudio: build/native-coreaudio-probe
+test-native-coreaudio: build/native-coreaudio-probe build/native-coreaudio-selector-test
+	./build/native-coreaudio-selector-test
 	./build/native-coreaudio-probe --observe-default-output --duration 2 >/dev/null
 	@! ./build/native-coreaudio-probe --duration 2 >/dev/null 2>&1
 	@! ./build/native-coreaudio-probe --observe-default-output --duration 0 >/dev/null 2>&1
