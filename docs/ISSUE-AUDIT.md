@@ -53,11 +53,11 @@ Re-read all 13 open issues (#1–#9, #11, #13, #16, #18), the five existing PR b
 
 | Issues | Final reconciliation |
 |---|---|
-| #1 | Clarified dependent draft PRs may target a prerequisite branch, then must wait for its merge, retarget/reconcile against actual main, re-audit and receive fresh review before readiness/merge. The matching workflow correction is being reviewed in PR #10's worktree; its policy dependency remains open |
+| #1, #11 | Clarified dependent draft PRs may target a prerequisite branch, then must wait for its merge, retarget/reconcile against actual main, re-audit and receive fresh review before readiness/merge. PR #10 now contains the matching three-file correction at `030f48ab6dab8fbd8ebecf984ae1d19516adb209`, freshly reviewed by `/root/review_dependent_draft_workflow` with no actionable findings; its two ENGINEERING.md links still require policy #12 before readiness |
 | #2 | Updated the guard's conservative requested-capacity versus actual retained/current-work distinction and separate actual-byte reporting. Native 1/15/60 observations are scoped to the four-node fixture, not earlier mixed stress |
 | #3 | Recorded exact capture-tick ages, one-frame legacy/default, clear/reset/change/bypass/discontinuity semantics and recovery. Progressive image ticks remain distinct from NTSC fields; no audio or Syphon adapter code changed |
 | #13 | Linked the separately implemented #18 follow-on and review/native evidence while preserving #14's historical one-frame scope and all outstanding host/audio/lifecycle/combined gates |
 | #18 | Updated completed core/storage/review/package criteria and linked #19. Kept its first combined interaction criterion unchecked for the outstanding native mouse knob/context-menu check; actual SDK parameter and persistence behavior passed |
-| #4, #5, #6, #7, #8, #9, #11, #16 | Read and unchanged: native routing/I/O scope, Memory Palace fidelity, broader sheets/approval, reuse/review policy and deferred waveform sequencing remain valid |
+| #4, #5, #6, #7, #8, #9, #16 | Read and unchanged: native routing/I/O scope, Memory Palace fidelity, broader sheets/approval, reuse/review policy and deferred waveform sequencing remain valid |
 
 The core reuses shared immutable frames, graph evaluation, diagnostic accounting and normalization across the renderer and Rack panel. It adds no rendering allocation/wait to the audio callback. README contains installation, quick start and modules only. No acceptance threshold changed. Repository remains private and no merge occurred; #19 cannot bypass its prototype dependency. Native mouse editing and the broader #13 acceptance gaps remain explicit follow-up work.
