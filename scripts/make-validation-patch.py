@@ -124,10 +124,30 @@ def main():
                 syphon_source="Source Name", publisher="Relay Output",
             )
             patch = make_patch(args)
-            assert [module["model"] for module in patch["modules"]] == [
-                "VideoIo", "SignalProcessor", "VideoMonitor"
-            ]
-            assert len(patch["cables"]) == 3
+            modules = {module["id"]: module for module in patch["modules"]}
+            if len(patch["modules"]) != 3 or {
+                key: (module["plugin"], module["model"])
+                for key, module in modules.items()
+            } != {600: ("RVX", "VideoIo"), 601: ("RVX", "SignalProcessor"),
+                  602: ("RVX", "VideoMonitor")}:
+                raise AssertionError("relay must contain only I/O, processor and monitor")
+            routes = [(c["outputModuleId"], c["outputId"],
+                       c["inputModuleId"], c["inputId"]) for c in patch["cables"]]
+            if sorted(routes) != [(600, 0, 601, 0), (601, 0, 600, 0), (601, 0, 602, 0)]:
+                raise AssertionError("relay must route received pixels through the processor")
+            params = modules[601]["params"]
+            if len(params) != 4 or {p["id"]: p["value"] for p in params} != {
+                0: 1.0, 1: 0.0, 2: 0.0, 3: 0.0
+            }:
+                raise AssertionError("relay processor must preserve input A at unity")
+            expected_io = {
+                "sourceId": "", "sourceApplication": "Source App",
+                "sourceName": "Source Name", "publisherName": "Relay Output",
+                "publish": True, "holdLast": False,
+            }
+            if any(modules[600]["data"].get(key) != value
+                   for key, value in expected_io.items()):
+                raise AssertionError("relay must select the requested source and publish fresh input")
             payload = json.dumps(patch, indent=2) + "\n"
             output = root / "relay.vcv"
             write_exclusive(output, payload)

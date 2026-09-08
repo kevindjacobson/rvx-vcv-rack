@@ -307,13 +307,55 @@ bool runSelfTest() {
     rvx::Frame corrupt = *frame;
     corrupt.pixels[(size_t(181) * kWidth + 287) * kChannels] = .123f;
     if (decodeAndCheckPattern(corrupt)) return false;
-    Observations outage;
-    outage.validContent = 3;
-    outage.absentPolls = 1;
-    if (relayPasses(outage, true, 2, 2, 1, 0, 0)) return false;
     Observations healthy;
     healthy.validContent = 60;
-    return relayPasses(healthy, true, 2, 2, 1, 0, kFrameInterval);
+    if (!relayPasses(healthy, true, 2, 2, 1, 0, kFrameInterval)) return false;
+
+    // Each event independently invalidates a continuous, identity-bound relay.
+    const std::pair<const char*, uint64_t Observations::*> invalidEvents[] = {
+        {"missing output", &Observations::absentPolls},
+        {"ambiguous output", &Observations::ambiguousPolls},
+        {"replacement output", &Observations::identityChanges},
+        {"wrong format", &Observations::formatMismatches},
+        {"damaged pattern", &Observations::decodeFailures},
+        {"unrelated source", &Observations::nonceMismatches},
+        {"replayed source frame", &Observations::sequenceRepeats},
+        {"out-of-order source frame", &Observations::sequenceRegressions},
+    };
+    for (const auto& [name, counter] : invalidEvents) {
+        auto sample = healthy;
+        sample.*counter = 1;
+        if (relayPasses(sample, true, 2, 2, 1, 0, kFrameInterval)) {
+            std::cerr << "incorrect relay acceptance: " << name << "\n";
+            return false;
+        }
+    }
+    struct TimingCase {
+        const char* name;
+        uint64_t validFrames;
+        bool started;
+        double elapsed, cadence, skipped, freshness;
+    };
+    const TimingCase invalidTiming[] = {
+        {"startup never completed", 60, false, 2, 1, 0, kFrameInterval},
+        {"measurement ended early", 60, true, 1, 1, 0, kFrameInterval},
+        {"insufficient source frames", 2, true, 2, 1, 0, kFrameInterval},
+        {"reduced receive cadence", 60, true, 2, .98, 0, kFrameInterval},
+        {"excess source sequence loss", 60, true, 2, 1, .01, kFrameInterval},
+        // The server stays discoverable after three early frames. Endpoint FPS
+        // alone can look healthy; stale final content must still reject it.
+        {"discoverable but stale output", 3, true, 2, 1, 0, 1.5},
+    };
+    for (const auto& test : invalidTiming) {
+        auto sample = healthy;
+        sample.validContent = test.validFrames;
+        if (relayPasses(sample, test.started, test.elapsed, 2, test.cadence,
+                        test.skipped, test.freshness)) {
+            std::cerr << "incorrect relay acceptance: " << test.name << "\n";
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace

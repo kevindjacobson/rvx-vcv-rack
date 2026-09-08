@@ -116,8 +116,11 @@ test-native-syphon-path: build/native-syphon-path-probe
 	@! ./build/native-syphon-path-probe --loopback --duration 3600.1 >/dev/null 2>&1
 	@! ./build/native-syphon-path-probe --duration 2 >/dev/null 2>&1
 	@! ./build/native-syphon-path-probe --duration 2 --output-name exact-without-app >/dev/null 2>&1
-	@! ./build/native-syphon-path-probe --duration 2 --startup-timeout 1 \
-		--output-application App --output-name Output >/dev/null 2>&1
+	@rvx_probe_status=0; \
+		./build/native-syphon-path-probe --verify-relay --duration 2 --startup-timeout 1 \
+		--output-application "RVX absent test app $$$$" --output-name "RVX absent output $$$$" \
+		>/dev/null 2>&1 || rvx_probe_status=$$?; \
+		test "$$rvx_probe_status" -eq 20
 
 test-native-validation: test-native-coreaudio test-native-syphon-path
 
