@@ -65,6 +65,29 @@ int main() {
     static_assert(FrameDelayModule::IMAGE_OUTPUT == 0,
         "Image output identity must remain stable");
 
+    using rvx::rackadapter::StatusSeverity;
+    using rvx::rackadapter::classifyStatus;
+    assert(classifyStatus("Ready") == StatusSeverity::Healthy);
+    assert(classifyStatus("receiving Camera / Main; publishing RVX")
+        == StatusSeverity::Healthy);
+    assert(classifyStatus("receiving Chocolate / Late Show; publishing Error Studies")
+        == StatusSeverity::Healthy);
+    assert(classifyStatus("Bypassed") == StatusSeverity::Healthy);
+    assert(classifyStatus("Syphon ready; publisher waiting for frame")
+        == StatusSeverity::Waiting);
+    assert(classifyStatus("Starting video worker") == StatusSeverity::Waiting);
+    assert(classifyStatus("Module preview") == StatusSeverity::Waiting);
+    assert(classifyStatus("video graph exceeds node limit")
+        == StatusSeverity::Problem);
+    assert(classifyStatus("Syphon input source is ambiguous")
+        == StatusSeverity::Problem);
+    assert(classifyStatus("Syphon input could not connect; publishing RVX")
+        == StatusSeverity::Problem);
+    assert(classifyStatus("backend unavailable") == StatusSeverity::Problem);
+    assert(classifyStatus("unrecognized backend state") == StatusSeverity::Problem);
+    assert(classifyStatus("unrecognized backend state; publishing RVX")
+        == StatusSeverity::Problem);
+
 #if defined(__clang__)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"

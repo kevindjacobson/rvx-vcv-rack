@@ -1,4 +1,5 @@
 #include "RackAdapter.hpp"
+#include "RvxTheme.hpp"
 #include "../io/VideoBackend.hpp"
 
 #include <algorithm>
@@ -529,23 +530,38 @@ void VideoPort::bind(const std::shared_ptr<Node>& node, PortType type, int portI
 
 void VideoPort::draw(const DrawArgs& args) {
     const ::rack::math::Vec center = box.size.div(2.f);
-    NVGcolor domain = videoType_ == PortType::Image
-        ? nvgRGB(77, 201, 255) : nvgRGB(255, 90, 194);
     nvgBeginPath(args.vg);
-    nvgCircle(args.vg, center.x, center.y, box.size.x * 0.46f);
-    nvgFillColor(args.vg, nvgRGB(17, 20, 29));
+    if (videoType_ == PortType::Image) {
+        const float radius = box.size.x * 0.44f;
+        nvgMoveTo(args.vg, center.x, center.y - radius);
+        nvgLineTo(args.vg, center.x + radius, center.y);
+        nvgLineTo(args.vg, center.x, center.y + radius);
+        nvgLineTo(args.vg, center.x - radius, center.y);
+        nvgClosePath(args.vg);
+    }
+    else {
+        const float radius = box.size.x * 0.41f;
+        nvgRect(args.vg, center.x - radius, center.y - radius,
+                radius * 2.f, radius * 2.f);
+    }
+    nvgFillColor(args.vg, theme::panel());
     nvgFill(args.vg);
-    nvgStrokeWidth(args.vg, 2.2f);
-    nvgStrokeColor(args.vg, domain);
+    nvgStrokeWidth(args.vg, 1.8f);
+    nvgStrokeColor(args.vg, theme::signal());
     nvgStroke(args.vg);
 
     nvgBeginPath(args.vg);
-    nvgCircle(args.vg, center.x, center.y, box.size.x * 0.18f);
-    nvgFillColor(args.vg, nvgRGB(3, 5, 9));
+    nvgCircle(args.vg, center.x, center.y, box.size.x * 0.25f);
+    nvgFillColor(args.vg, theme::cell());
     nvgFill(args.vg);
     nvgStrokeWidth(args.vg, 1.f);
-    nvgStrokeColor(args.vg, nvgRGBA(255, 255, 255, 100));
+    nvgStrokeColor(args.vg, theme::paper());
     nvgStroke(args.vg);
+
+    nvgBeginPath(args.vg);
+    nvgCircle(args.vg, center.x, center.y, box.size.x * 0.105f);
+    nvgFillColor(args.vg, nvgRGB(2, 3, 2));
+    nvgFill(args.vg);
     ::rack::app::PortWidget::draw(args);
 }
 
