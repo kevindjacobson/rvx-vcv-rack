@@ -1,6 +1,6 @@
 # RVX prototype contract
 
-The user approved building issue #13 on September 7, 2026: “Let’s get building. Orchestrate a team”. This authorizes the six-module prototype, dependency setup and validation. It does not assert that the complete LZX release plan or its fidelity gates have passed. Issues #2–#9 remain open for their outstanding scope.
+The user approved building issue #13 on September 7, 2026: “Let’s get building. Orchestrate a team”. This authorizes the six-module prototype, dependency setup and validation. It does not assert that the complete LZX release plan or its fidelity gates have passed. Issues #2–#5 and #7–#9 retain their outstanding planning scope. Issue #6 delivered the [Memory Palace behavior sheet](MEMORY-PALACE.md); its unrun hardware and fidelity gates remain explicit.
 
 Initial validation target observed locally: Apple M4, 16 GiB memory, macOS 26.2 (25C56), VCV Rack Pro 2.6.6 standalone, arm64. DAW compatibility is not inferred. SDK 2.6.6 mac-arm64 SHA-256: 29414e52417992cbafa47e30f947c3c0c7a34e5c424bb83c5a0af8c24840481f.
 
