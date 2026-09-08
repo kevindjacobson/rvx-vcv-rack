@@ -11,6 +11,7 @@ Outstanding planning work includes target Mac/Rack details, first-release contro
 - [RVX implementation plan](VCV-Video-System-Plan.md): architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, effort estimates and outstanding decisions.
 - [RVX LZX feasibility review](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.
 - [Structured grades](research/grades.json): machine-readable assessment data.
+- [Memory Palace behavior sheet](docs/MEMORY-PALACE.md): selected V19 reference, control/port audit, proposed four-path routing and history rules, reusable operators, reference patches and unresolved fidelity gates for issue #6.
 - [Project working instructions](AGENTS.md): planning boundary and documentation practices.
 
 README.md is user documentation: installation, quick start and a module table only. Keep project history, design decisions, research procedures and approval state in this document or the implementation plan. Until a runnable release exists, its installation and quick-start sections state availability honestly rather than describe unverified commands or controls.
