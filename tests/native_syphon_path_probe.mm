@@ -33,6 +33,9 @@ constexpr double kMaximumDuration = 3600.0, kDefaultStartupTimeout = 15.0;
 constexpr double kMaximumStartupTimeout = 300.0, kMinimumCadenceRatio = 0.99;
 constexpr double kMaximumSkippedSequenceRatio = 0.01;
 constexpr double kMaximumEndFreshness = kFrameInterval * 3.0;
+constexpr float kPixelTolerance = 2.5f / 255.f;
+constexpr size_t kPixelsPerFrame = size_t(kWidth) * kHeight;
+constexpr size_t kChannelsPerFrame = kPixelsPerFrame * kChannels;
 volatile std::sig_atomic_t stopRequested = 0;
 
 enum class Mode { Observe, Loopback, VerifyRelay, SelfTest };
@@ -75,7 +78,7 @@ std::array<float, 4> patternPixel(int x, int y, uint64_t nonce, uint64_t sequenc
     int movingX = int((sequence * 7) % kWidth);
     int movingY = int((sequence * 3) % kHeight);
     if ((x - movingX + kWidth) % kWidth < 18) {
-        float value = ((y / 12 + int(sequence)) & 1) ? 1.f : 0.f;
+        float value = ((y / 12 + int(sequence & 1u)) & 1) ? 1.f : 0.f;
         pixel[0] = pixel[1] = pixel[2] = value;
     }
     if ((y - movingY + kHeight) % kHeight < 4)
@@ -117,12 +120,9 @@ rvx::FramePtr makePattern(uint64_t nonce, uint64_t sequence) {
 }
 
 bool closePixel(float actual, float expected) {
-    return std::isfinite(actual) && std::abs(actual - expected) <= 2.5f / 255.f;
+    return std::abs(actual - expected) <= kPixelTolerance;
 }
 std::optional<uint64_t> decodeBits(const rvx::Frame& frame, int y, int bitCount) {
-    if (frame.width != kWidth || frame.height != kHeight || frame.channels != kChannels ||
-        frame.pixels.size() != size_t(kWidth) * kHeight * kChannels)
-        return std::nullopt;
     uint64_t value = 0;
     for (int bit = 0; bit < bitCount; ++bit) {
         size_t i = (size_t(y) * kWidth + bit * 8 + 4) * kChannels;
@@ -133,20 +133,48 @@ std::optional<uint64_t> decodeBits(const rvx::Frame& frame, int y, int bitCount)
     }
     return value;
 }
-struct DecodedPattern { uint64_t nonce, sequence; };
-std::optional<DecodedPattern> decodeAndCheckPattern(const rvx::Frame& frame) {
+enum class PatternFailure { None, MalformedFrame, NonFiniteChannel, HeaderDecode, FullFrameMismatch };
+struct PatternCheck {
+    PatternFailure failure = PatternFailure::None;
+    uint64_t nonce = 0, sequence = 0;
+    size_t comparedPixels = 0, comparedChannels = 0;
+};
+PatternCheck checkPattern(const rvx::Frame& frame) {
+    PatternCheck result;
+    if (frame.width != kWidth || frame.height != kHeight || frame.channels != kChannels ||
+        frame.pixels.size() != kChannelsPerFrame) {
+        result.failure = PatternFailure::MalformedFrame;
+        return result;
+    }
+    // Validate storage and every channel before decoding coordinates or comparing values.
+    if (std::any_of(frame.pixels.begin(), frame.pixels.end(),
+                    [](float value) { return !std::isfinite(value); })) {
+        result.failure = PatternFailure::NonFiniteChannel;
+        return result;
+    }
     auto nonce = decodeBits(frame, 8, 64);
     auto sequence = decodeBits(frame, 24, 32);
-    if (!nonce || !sequence) return std::nullopt;
-    static constexpr int xs[] = {3, 97, 191, 287, 383, 479, 575, 701};
-    static constexpr int ys[] = {47, 103, 181, 263, 347, 431};
-    for (int y : ys) for (int x : xs) {
-        auto expected = patternPixel(x, y, *nonce, *sequence);
-        size_t i = (size_t(y) * kWidth + x) * kChannels;
-        for (int c = 0; c < kChannels; ++c)
-            if (!closePixel(frame.pixels[i + c], expected[c])) return std::nullopt;
+    if (!nonce || !sequence) {
+        result.failure = PatternFailure::HeaderDecode;
+        return result;
     }
-    return DecodedPattern{*nonce, *sequence};
+    result.nonce = *nonce;
+    result.sequence = *sequence;
+    for (int y = 0; y < kHeight; ++y) {
+        for (int x = 0; x < kWidth; ++x) {
+            auto expected = patternPixel(x, y, result.nonce, result.sequence);
+            size_t i = (size_t(y) * kWidth + x) * kChannels;
+            for (int c = 0; c < kChannels; ++c) {
+                ++result.comparedChannels;
+                if (!closePixel(frame.pixels[i + c], expected[c])) {
+                    result.failure = PatternFailure::FullFrameMismatch;
+                    return result;
+                }
+            }
+            ++result.comparedPixels;
+        }
+    }
+    return result;
 }
 
 std::vector<rvx::VideoSource> exactMatches(
@@ -264,22 +292,32 @@ struct Observations {
     uint64_t discoveryPolls = 0, absentPolls = 0, ambiguousPolls = 0, identityChanges = 0;
     uint64_t receivePolls = 0, nullReturns = 0, repeatedPtrs = 0, completedPtrs = 0;
     uint64_t hashChanges = 0, hashRepeats = 0, formatMismatches = 0;
-    uint64_t decodeFailures = 0, nonceMismatches = 0, validContent = 0;
+    uint64_t patternFailures = 0, malformedFrames = 0, nonFiniteFrames = 0;
+    uint64_t headerDecodeFailures = 0, fullFrameMismatchFrames = 0;
+    uint64_t fullFrameChecks = 0, fullFrameMatches = 0;
+    uint64_t fullFramePixelsCompared = 0, fullFrameChannelsCompared = 0;
+    uint64_t nonceMismatches = 0, validContent = 0;
     uint64_t sequenceRepeats = 0, sequenceRegressions = 0, skippedSequences = 0;
     uint64_t interarrivalOverruns = 0, estimatedMissedSlots = 0;
     double maxGapMs = 0;
     std::map<std::tuple<int, int, int>, uint64_t> formats;
     std::vector<double> gaps;
+    std::vector<double> fullFrameCheckMs;
 };
 bool relayPasses(const Observations& s, bool startupComplete, double actualMeasured,
                  double requestedMeasured, double cadenceRatio,
-                 double skippedRatio, double endFreshness) {
-    return startupComplete && actualMeasured >= requestedMeasured && s.validContent >= 3 &&
+                 double skippedRatio, double endFreshness, bool interrupted = false) {
+    return !interrupted && startupComplete && actualMeasured >= requestedMeasured && s.validContent >= 3 &&
         s.absentPolls == 0 && s.ambiguousPolls == 0 && s.identityChanges == 0 &&
-        s.formatMismatches == 0 && s.decodeFailures == 0 && s.nonceMismatches == 0 &&
+        s.formatMismatches == 0 && s.patternFailures == 0 && s.nonceMismatches == 0 &&
         s.sequenceRepeats == 0 && s.sequenceRegressions == 0 &&
         cadenceRatio >= kMinimumCadenceRatio && skippedRatio < kMaximumSkippedSequenceRatio &&
         endFreshness <= kMaximumEndFreshness;
+}
+double sum(const std::vector<double>& values) {
+    double result = 0;
+    for (double value : values) result += value;
+    return result;
 }
 double percentile(std::vector<double> values, double fraction) {
     if (values.empty()) return 0;
@@ -302,11 +340,77 @@ bool runSelfTest() {
         !exactMatches(sources, "Wrong", "output").empty()) return false;
     constexpr uint64_t nonce = 0xa59c3187de42f06bull;
     auto frame = makePattern(nonce, 123456);
-    auto decoded = decodeAndCheckPattern(*frame);
-    if (!decoded || decoded->nonce != nonce || decoded->sequence != 123456) return false;
-    rvx::Frame corrupt = *frame;
-    corrupt.pixels[(size_t(181) * kWidth + 287) * kChannels] = .123f;
-    if (decodeAndCheckPattern(corrupt)) return false;
+    auto checked = checkPattern(*frame);
+    if (checked.failure != PatternFailure::None || checked.nonce != nonce ||
+        checked.sequence != 123456 || checked.comparedPixels != kPixelsPerFrame ||
+        checked.comparedChannels != kChannelsPerFrame) return false;
+    auto foreignFrame = makePattern(nonce ^ 1u, 123456);
+    auto foreignCheck = checkPattern(*foreignFrame);
+    if (foreignCheck.failure != PatternFailure::None || foreignCheck.nonce == nonce) return false;
+
+    rvx::Frame quantized = *frame;
+    for (float& value : quantized.pixels) value = std::round(value * 255.f) / 255.f;
+    if (checkPattern(quantized).failure != PatternFailure::None) return false;
+
+    // This body coordinate is outside both protected headers and all historical sentinels.
+    constexpr int corruptX = 350, corruptY = 220;
+    static constexpr int oldXs[] = {3, 97, 191, 287, 383, 479, 575, 701};
+    static constexpr int oldYs[] = {47, 103, 181, 263, 347, 431};
+    if (corruptY < 32 || std::find(std::begin(oldXs), std::end(oldXs), corruptX) != std::end(oldXs) ||
+        std::find(std::begin(oldYs), std::end(oldYs), corruptY) != std::end(oldYs)) return false;
+    size_t corruptIndex = (size_t(corruptY) * kWidth + corruptX) * kChannels;
+    for (int channel = 0; channel < kChannels; ++channel) {
+        rvx::Frame corrupt = *frame;
+        float expected = corrupt.pixels[corruptIndex + channel];
+        corrupt.pixels[corruptIndex + channel] = expected > .5f ? 0.f : 1.f;
+        if (checkPattern(corrupt).failure != PatternFailure::FullFrameMismatch) return false;
+    }
+
+    rvx::Frame withinTolerance = *frame;
+    withinTolerance.pixels[corruptIndex] += kPixelTolerance * .5f;
+    if (checkPattern(withinTolerance).failure != PatternFailure::None) return false;
+    rvx::Frame outsideTolerance = *frame;
+    outsideTolerance.pixels[corruptIndex] += kPixelTolerance * 1.5f;
+    if (checkPattern(outsideTolerance).failure != PatternFailure::FullFrameMismatch) return false;
+
+    rvx::Frame flipped = *frame;
+    for (int y = 32; y < kHeight; ++y) {
+        for (int x = 0; x < kWidth / 2; ++x) {
+            size_t left = (size_t(y) * kWidth + x) * kChannels;
+            size_t right = (size_t(y) * kWidth + (kWidth - 1 - x)) * kChannels;
+            for (int c = 0; c < kChannels; ++c)
+                std::swap(flipped.pixels[left + c], flipped.pixels[right + c]);
+        }
+    }
+    if (checkPattern(flipped).failure != PatternFailure::FullFrameMismatch) return false;
+
+    rvx::Frame wrongContent = *frame;
+    auto nextPattern = makePattern(nonce, 123457);
+    std::copy(nextPattern->pixels.begin() + size_t(32) * kWidth * kChannels,
+              nextPattern->pixels.end(),
+              wrongContent.pixels.begin() + size_t(32) * kWidth * kChannels);
+    if (checkPattern(wrongContent).failure != PatternFailure::FullFrameMismatch) return false;
+
+    for (int channel = 0; channel < kChannels; ++channel) {
+        for (float invalid : {NAN, INFINITY, -INFINITY}) {
+            rvx::Frame nonFinite = *frame;
+            nonFinite.pixels[corruptIndex + channel] = invalid;
+            if (checkPattern(nonFinite).failure != PatternFailure::NonFiniteChannel) return false;
+        }
+    }
+    rvx::Frame malformed = *frame;
+    malformed.width = kWidth - 1;
+    if (checkPattern(malformed).failure != PatternFailure::MalformedFrame) return false;
+    malformed = *frame;
+    malformed.channels = kChannels - 1;
+    if (checkPattern(malformed).failure != PatternFailure::MalformedFrame) return false;
+    malformed = *frame;
+    malformed.pixels.pop_back();
+    if (checkPattern(malformed).failure != PatternFailure::MalformedFrame) return false;
+    malformed = *frame;
+    malformed.pixels.push_back(0.f);
+    if (checkPattern(malformed).failure != PatternFailure::MalformedFrame) return false;
+
     Observations healthy;
     healthy.validContent = 60;
     if (!relayPasses(healthy, true, 2, 2, 1, 0, kFrameInterval)) return false;
@@ -317,7 +421,7 @@ bool runSelfTest() {
         {"ambiguous output", &Observations::ambiguousPolls},
         {"replacement output", &Observations::identityChanges},
         {"wrong format", &Observations::formatMismatches},
-        {"damaged pattern", &Observations::decodeFailures},
+        {"damaged pattern", &Observations::patternFailures},
         {"unrelated source", &Observations::nonceMismatches},
         {"replayed source frame", &Observations::sequenceRepeats},
         {"out-of-order source frame", &Observations::sequenceRegressions},
@@ -329,6 +433,10 @@ bool runSelfTest() {
             std::cerr << "incorrect relay acceptance: " << name << "\n";
             return false;
         }
+    }
+    if (relayPasses(healthy, true, 2, 2, 1, 0, kFrameInterval, true)) {
+        std::cerr << "incorrect relay acceptance: interrupted run\n";
+        return false;
     }
     struct TimingCase {
         const char* name;
@@ -493,18 +601,36 @@ int main(int argc, char** argv) {
                     if (frame->width != kWidth || frame->height != kHeight || frame->channels != kChannels)
                         ++s.formatMismatches;
                     if (options->mode == Mode::VerifyRelay || options->mode == Mode::Loopback) {
-                        auto decoded = decodeAndCheckPattern(*frame);
-                        if (!decoded) ++s.decodeFailures;
-                        else if (decoded->nonce != nonce) ++s.nonceMismatches;
+                        auto checkStarted = Clock::now();
+                        auto checked = checkPattern(*frame);
+                        double checkMs = std::chrono::duration<double, std::milli>(
+                            Clock::now() - checkStarted).count();
+                        ++s.fullFrameChecks;
+                        s.fullFramePixelsCompared += checked.comparedPixels;
+                        s.fullFrameChannelsCompared += checked.comparedChannels;
+                        s.fullFrameCheckMs.push_back(checkMs);
+                        if (checked.failure != PatternFailure::None) {
+                            ++s.patternFailures;
+                            if (checked.failure == PatternFailure::MalformedFrame) ++s.malformedFrames;
+                            else if (checked.failure == PatternFailure::NonFiniteChannel) ++s.nonFiniteFrames;
+                            else if (checked.failure == PatternFailure::HeaderDecode) ++s.headerDecodeFailures;
+                            else if (checked.failure == PatternFailure::FullFrameMismatch)
+                                ++s.fullFrameMismatchFrames;
+                        }
+                        else if (checked.nonce != nonce) {
+                            ++s.fullFrameMatches;
+                            ++s.nonceMismatches;
+                        }
                         else {
+                            ++s.fullFrameMatches;
                             ++s.validContent; lastValid = receivedAt;
                             if (previousSequence) {
-                                if (decoded->sequence == *previousSequence) ++s.sequenceRepeats;
-                                else if (decoded->sequence < *previousSequence) ++s.sequenceRegressions;
-                                else if (decoded->sequence > *previousSequence + 1)
-                                    s.skippedSequences += decoded->sequence - *previousSequence - 1;
+                                if (checked.sequence == *previousSequence) ++s.sequenceRepeats;
+                                else if (checked.sequence < *previousSequence) ++s.sequenceRegressions;
+                                else if (checked.sequence > *previousSequence + 1)
+                                    s.skippedSequences += checked.sequence - *previousSequence - 1;
                             }
-                            previousSequence = decoded->sequence;
+                            previousSequence = checked.sequence;
                             if (startup) startupSucceeded = true;
                         }
                     }
@@ -531,11 +657,11 @@ int main(int argc, char** argv) {
             : std::chrono::duration<double>(Clock::now() - lastValid).count();
         bool relayPassed = options->mode == Mode::VerifyRelay && relayPasses(
             s, startupSucceeded && !startup, actualMeasured, options->duration,
-            cadenceRatio, skippedRatio, endFreshness);
-        bool loopbackPassed = options->mode == Mode::Loopback && s.completedPtrs >= 3 &&
+            cadenceRatio, skippedRatio, endFreshness, stopRequested);
+        bool loopbackPassed = options->mode == Mode::Loopback && !stopRequested && s.completedPtrs >= 3 &&
             s.hashChanges >= 2 && s.absentPolls == 0 && s.ambiguousPolls == 0 &&
             s.identityChanges == 0 && s.formatMismatches == 0 && s.validContent >= 3 &&
-            s.decodeFailures == 0 && s.nonceMismatches == 0 && s.sequenceRegressions == 0;
+            s.patternFailures == 0 && s.nonceMismatches == 0 && s.sequenceRegressions == 0;
 
         std::cout << "{\"event\":\"summary\",\"mode\":" << jsonQuote(modeName);
         if (options->mode == Mode::Observe) std::cout << ",\"transportAssertion\":null";
@@ -566,7 +692,12 @@ int main(int argc, char** argv) {
                   << ",\"pixelHashChanges\":" << s.hashChanges
                   << ",\"pixelHashRepeatsOnNewFramePtr\":" << s.hashRepeats
                   << ",\"formatMismatchFrames\":" << s.formatMismatches
-                  << ",\"patternDecodeFailures\":" << s.decodeFailures
+                  << ",\"patternDecodeFailures\":" << s.patternFailures
+                  << ",\"patternVerificationFailures\":" << s.patternFailures
+                  << ",\"malformedFrameFailures\":" << s.malformedFrames
+                  << ",\"nonFiniteFrameFailures\":" << s.nonFiniteFrames
+                  << ",\"headerDecodeFailures\":" << s.headerDecodeFailures
+                  << ",\"fullFrameMismatchFrames\":" << s.fullFrameMismatchFrames
                   << ",\"nonceMismatchFrames\":" << s.nonceMismatches
                   << ",\"contentValidFrames\":" << s.validContent
                   << ",\"sequenceRepeatFrames\":" << s.sequenceRepeats
@@ -582,7 +713,25 @@ int main(int argc, char** argv) {
                   << ",\"maxReceivedGapMs\":" << s.maxGapMs
                   << ",\"endFreshnessSeconds\":";
         if (std::isfinite(endFreshness)) std::cout << endFreshness; else std::cout << "null";
-        std::cout << ",\"receivedFormats\":[";
+        double totalFullFrameCheckMs = sum(s.fullFrameCheckMs);
+        std::cout << ",\"fullFrameVerification\":{"
+                  << "\"coverage\":\"every RGBA channel of every 720x480 pixel\","
+                  << "\"pixelsPerFrame\":" << kPixelsPerFrame
+                  << ",\"channelsPerPixel\":" << kChannels
+                  << ",\"channelsPerFrame\":" << kChannelsPerFrame
+                  << ",\"perChannelTolerance\":" << kPixelTolerance
+                  << ",\"finiteChannelsRequired\":true"
+                  << ",\"attemptedFrames\":" << s.fullFrameChecks
+                  << ",\"matchedFrames\":" << s.fullFrameMatches
+                  << ",\"comparedPixels\":" << s.fullFramePixelsCompared
+                  << ",\"comparedChannels\":" << s.fullFrameChannelsCompared
+                  << ",\"costMs\":{\"total\":" << totalFullFrameCheckMs
+                  << ",\"mean\":" << (s.fullFrameCheckMs.empty() ? 0 : totalFullFrameCheckMs / s.fullFrameCheckMs.size())
+                  << ",\"p50\":" << percentile(s.fullFrameCheckMs, .50)
+                  << ",\"p95\":" << percentile(s.fullFrameCheckMs, .95)
+                  << ",\"p99\":" << percentile(s.fullFrameCheckMs, .99)
+                  << ",\"max\":" << percentile(s.fullFrameCheckMs, 1.0) << "}}"
+                  << ",\"receivedFormats\":[";
         bool first = true;
         for (const auto& [key, count] : s.formats) {
             if (!first) std::cout << ",";
@@ -597,7 +746,7 @@ int main(int argc, char** argv) {
                   << ",\"maximumEndFreshnessSeconds\":" << kMaximumEndFreshness << "}"
                   << ",\"semantics\":{"
                   << "\"observationMode\":\"records exact-identity observations and makes no transport pass assertion\","
-                  << "\"verifyRelayMode\":\"starts measured duration only after exact-identity nonce-bound content arrives\","
+                  << "\"verifyRelayMode\":\"starts measured duration only after exact-identity nonce-bound full-frame content arrives\","
                   << "\"receivedFormats\":\"working formats after backend conversion; native source dimensions are not exposed\","
                   << "\"fpsAndOverruns\":\"Syphon has no FPS metadata; rates and gaps use the steady clock\"}}\n"
                   << std::flush;

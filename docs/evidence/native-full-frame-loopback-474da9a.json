@@ -1,0 +1,55 @@
+{
+  "date": "2026-09-07",
+  "baseRevision": "3e2e100c7bd595241f68265039567eede18230e5",
+  "probeRevision": "474da9a11bcdfcca75315e4904ef248de784f376",
+  "syphonRevision": "71351d4b484cd2d1917867f7846a5cdca724552d",
+  "target": {
+    "processor": "Apple M4",
+    "architecture": "arm64",
+    "macOS": "26.2 (25C56)"
+  },
+  "scope": "Five-second opt-in standalone Syphon loopback using the production RVX Syphon backend and pinned library; no Rack host or combined audio/video workload",
+  "command": "./build/native-syphon-path-probe --loopback --duration 5 --progress 0 --source-name 'RVX issue 24 full-frame loopback'",
+  "result": {
+    "passed": true,
+    "interrupted": false,
+    "requestedMeasuredDurationSeconds": 5,
+    "actualMeasuredDurationSeconds": 5.00102,
+    "publishedFrames": 150,
+    "contentValidFrames": 150,
+    "patternVerificationFailures": 0,
+    "nonceMismatchFrames": 0,
+    "sequenceRepeatFrames": 0,
+    "sequenceRegressionFrames": 0,
+    "skippedSourceSequenceFrames": 0,
+    "receivedFpsInActiveWindow": 29.967,
+    "receivedToNominalFpsRatio": 0.999899,
+    "maxReceivedGapMs": 36.946,
+    "fullFrameVerification": {
+      "coverage": "every RGBA channel of every 720x480 pixel",
+      "pixelsPerFrame": 345600,
+      "channelsPerPixel": 4,
+      "channelsPerFrame": 1382400,
+      "perChannelTolerance": 0.00980392,
+      "toleranceDefinition": "2.5 / 255",
+      "finiteChannelsRequired": true,
+      "attemptedFrames": 150,
+      "matchedFrames": 150,
+      "comparedPixels": 51840000,
+      "comparedChannels": 207360000,
+      "costMs": {
+        "total": 123.299,
+        "mean": 0.821995,
+        "p50": 0.803666,
+        "p95": 0.83325,
+        "p99": 1.91975,
+        "max": 2.2985
+      }
+    }
+  },
+  "limits": [
+    "This standalone loopback measures the full-frame verifier and the same Syphon backend without a Rack relay fixture.",
+    "No native Rack relay, source restart, physical audio reconnect, audiovisual latency, combined workload, NTSC behavior or LZX fidelity gate was run or closed at this revision.",
+    "Historical 48-sentinel native relay evidence remains scoped to its recorded probe and runtime revisions."
+  ]
+}

@@ -89,6 +89,14 @@ Native Rack, still running runtime `2a077dd`, produced these [six recorded trial
 
 The strict relay check rejects repeated source sequences, requires at least 99% received cadence, less than 1% skipped source sequences, and recent valid content at the end. Those thresholds are stated by the probe and were not changed after a failure. This verifies a known source traversing the native relay and reconnection; it does not retroactively bind source content to the older mixed stress output, measure audiovisual alignment, or establish transformed-image/hardware fidelity. The [native workflow](NATIVE-VALIDATION.md) includes positive and negative reproduction cases.
 
+### Full-frame relay verifier follow-on (#24)
+
+Probe revision `474da9a11bcdfcca75315e4904ef248de784f376` replaces the sampled body check for new runs with a complete expected-frame comparison: all 345,600 pixels and 1,382,400 RGBA channels, including alpha, at the existing finite tolerance of `2.5 / 255` per channel. Exact source application/name, fresh nonce, source sequence, continuous availability/identity, cadence, skipped-sequence and end-freshness gates remain mandatory. Dimensions, channel count, pixel-vector length and finite values are rejected before indexed decode/comparison. Automated negative cases cover all four channels outside the historical header/sentinel positions, orientation, different body content, NaN/infinities, malformed frames, wrong identity/nonce, repeats, outage and interruption.
+
+The [five-second standalone loopback record](evidence/native-full-frame-loopback-474da9a.json) passed 150/150 complete frames and compared 207,360,000 channels. On the observed Apple M4, full-frame verification cost 0.821995 ms mean, 0.833250 ms p95, 1.919750 ms p99 and 2.298500 ms maximum. This short opt-in process used the production RVX Syphon backend and pinned library, but did not run through native Rack. No current-revision Rack relay/restart, combined workload, physical audio reconnect or latency test is inferred.
+
+The six native trials above remain historical 48-sentinel evidence at probe/generator `8d0f3630de5774ccdff95820d862a811c6ba0fe8`, runtime `2a077dd` and their separately recorded review revisions. They are not relabeled as full-frame proof. Generated reference patterns establish transport behavior only; they do not establish LZX or arbitrary transformed-image fidelity.
+
 Reproduction commands from the checkout:
 
 ```sh
