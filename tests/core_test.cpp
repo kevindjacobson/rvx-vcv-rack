@@ -399,6 +399,35 @@ void testCvClockDriftRecovery() {
         }
     };
 
+    {
+        auto warm = std::make_shared<Node>(Kind::CvBridge);
+        warm->params[0].store(1.f);
+        warm->params[1].store(1.f);
+        Renderer warmRenderer;
+        Graph warmGraph{{warm}, {}, 1};
+        int nextSample = 0;
+        for (; nextSample < 2000; ++nextSample)
+            CHECK(warm->audio.push({nextSample / 48000.0, 1.f, 20}));
+        warmRenderer.render(warmGraph, Format{4, 1, 30000, 1001}, 0, 0);
+        for (float value : warm->display()->outputs[0]->pixels) NEAR(value, 1.f, 1e-5f);
+        warmRenderer.render(warmGraph, Format{4, 1, 30000, 1001}, 1,
+                            1001.0 / 30000.0);
+        warmRenderer.render(warmGraph, Format{4, 1, 30000, 1001}, 2,
+                            2.0 * 1001.0 / 30000.0);
+        CHECK(warm->audio.push({nextSample++ / 48000.0, 20.f, 20}));
+        warmRenderer.render(warmGraph, Format{4, 1, 30000, 1001}, 3,
+                            3.0 * 1001.0 / 30000.0);
+        for (float value : warm->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+        for (int added = 0; added < 1602; ++added, ++nextSample)
+            CHECK(warm->audio.push({nextSample / 48000.0, 20.f, 20}));
+        warmRenderer.render(warmGraph, Format{4, 1, 30000, 1001}, 4,
+                            4.0 * 1001.0 / 30000.0);
+        for (float value : warm->display()->outputs[0]->pixels) NEAR(value, 20.f, 1e-4f);
+        warmRenderer.render(warmGraph, Format{4, 1, 30000, 1001}, 5,
+                            5.0 * 1001.0 / 30000.0);
+        for (float value : warm->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+    }
+
     for (int initialBatch : {800, 1600}) {
         auto cold = std::make_shared<Node>(Kind::CvBridge);
         cold->params[0].store(1.f);

@@ -284,6 +284,10 @@ struct Renderer::Impl {
         bool haveTimeMapping = false;
         double anchorRenderSeconds = 0;
         double anchorAudioEndSeconds = 0;
+        double lastRenderedAudioEndSeconds = 0;
+        double recoveryAfterAudioSeconds = 0;
+        bool haveRenderedAudioEnd = false;
+        bool recoveringFromStall = false;
         uint64_t pendingTriggers = 0;
         uint64_t discardedTriggers = 0;
         uint64_t historyEvictions = 0;
@@ -313,6 +317,8 @@ struct Renderer::Impl {
             state.samples.clear();
             state.haveEpoch = false;
             state.haveTimeMapping = false;
+            state.haveRenderedAudioEnd = false;
+            state.recoveringFromStall = false;
             state.pendingTriggers = 0;
         }
         for (auto& item : io) item.second.lastReceived.reset();
@@ -673,6 +679,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 state.samples.clear();
                 state.haveEpoch = false;
                 state.haveTimeMapping = false;
+                state.haveRenderedAudioEnd = false;
+                state.recoveringFromStall = false;
                 state.pendingTriggers = 0;
             };
             const bool reset = graph.nodes[index]->resets.exchange(0, std::memory_order_acq_rel) > 0;
@@ -689,6 +697,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                         state.epoch = sample.epoch;
                         state.haveEpoch = true;
                         state.haveTimeMapping = false;
+                        state.haveRenderedAudioEnd = false;
+                        state.recoveringFromStall = false;
                         state.pendingTriggers = 0;
                         epochChanged = true;
                     }
@@ -751,18 +761,29 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 bool windowAvailable = !state.samples.empty() &&
                     begin + timestampTolerance >= state.samples.front().seconds &&
                     end - timestampTolerance <= state.samples.back().seconds;
+                if (!acceptedSamples && !windowAvailable && state.haveRenderedAudioEnd &&
+                    !state.recoveringFromStall) {
+                    state.recoveringFromStall = true;
+                    state.recoveryAfterAudioSeconds = state.lastRenderedAudioEndSeconds;
+                }
+                const bool completeRecoveryWindow = !state.recoveringFromStall ||
+                    (!state.samples.empty() && state.samples.back().seconds -
+                        state.recoveryAfterAudioSeconds + timestampTolerance >= duration);
+                if (state.recoveringFromStall) windowAvailable = false;
                 const bool producerAhead = !state.samples.empty() &&
                     state.samples.back().seconds - end > duration;
                 const bool fullNewestWindow = !state.samples.empty() &&
                     state.samples.back().seconds - state.samples.front().seconds +
                         timestampTolerance >= duration;
-                if (acceptedSamples && fullNewestWindow && (!windowAvailable || producerAhead)) {
+                if (acceptedSamples && fullNewestWindow && completeRecoveryWindow &&
+                    (!windowAvailable || producerAhead)) {
                     end = state.samples.back().seconds;
                     begin = end - duration;
                     state.anchorRenderSeconds = seconds;
                     state.anchorAudioEndSeconds = end;
                     ++state.clockReanchors;
                     windowAvailable = begin + timestampTolerance >= state.samples.front().seconds;
+                    state.recoveringFromStall = false;
                 }
                 // An unavailable window may be only a fraction of one audio block short. Preserve
                 // it so the next capture can complete a full raster interval; the fixed history cap
@@ -802,6 +823,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                         field->pixels[p] = finiteOrZero(interpolate(begin + (end - begin) * amount) *
                                                         scale + offset, report.errors);
                     }
+                    state.lastRenderedAudioEndSeconds = end;
+                    state.haveRenderedAudioEnd = true;
                 }
             }
             if (state.discardedTriggers)
