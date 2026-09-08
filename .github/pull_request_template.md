@@ -1,4 +1,4 @@
-<!-- Replace the issue placeholder with the one deliverable this PR completes. Target main. Use a draft while work or validation is incomplete. -->
+<!-- Replace the issue placeholder with the one deliverable this PR completes. Normally target main. A dependent draft may target its declared prerequisite branch to keep its diff focused; after that prerequisite merges, retarget the PR to the resulting actual main and repeat the issue audit and fresh actual-base review before readiness or merge. Use a draft while work or validation is incomplete. -->
 
 Closes #<issue-number>
 
@@ -26,7 +26,7 @@ Closes #<issue-number>
 
 <!-- Before readiness, provide the reviewer with the issue and acceptance criteria, base/head revisions, relevant files and test evidence. Use a separate reviewer agent with fork_turns none; do not provide the author's narrative as a substitute. State the reviewer identity/context, findings, resolutions and whether a second fresh review was required. -->
 
-- [ ] This PR contains one issue's deliverable and targets `main`.
+- [ ] This PR contains one issue's deliverable, targets the actual `main`, and has reconciled any merged prerequisite through a repeated issue audit and fresh actual-base review.
 - [ ] The issue's acceptance criteria are satisfied and supported by the validation above.
 - [ ] The open-issue audit is current and affected assumptions, specifications and dependencies are reconciled.
 - [ ] Code quality and reuse have been reviewed alongside the delivered behavior, as applicable to this change.
