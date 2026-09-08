@@ -764,8 +764,13 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                     ++state.clockReanchors;
                     windowAvailable = begin + timestampTolerance >= state.samples.front().seconds;
                 }
-                while (state.samples.size() > 2 && state.samples[1].seconds < begin)
-                    state.samples.pop_front();
+                // An unavailable window may be only a fraction of one audio block short. Preserve
+                // it so the next capture can complete a full raster interval; the fixed history cap
+                // remains the backstop. Once usable, retain one interpolation sample before begin.
+                if (windowAvailable) {
+                    while (state.samples.size() > 2 && state.samples[1].seconds < begin)
+                        state.samples.pop_front();
+                }
                 windowAvailable = windowAvailable && !state.samples.empty() &&
                     begin + timestampTolerance >= state.samples.front().seconds &&
                     end - timestampTolerance <= state.samples.back().seconds;

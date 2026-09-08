@@ -399,6 +399,30 @@ void testCvClockDriftRecovery() {
         }
     };
 
+    for (int initialBatch : {800, 1600}) {
+        auto cold = std::make_shared<Node>(Kind::CvBridge);
+        cold->params[0].store(1.f);
+        cold->params[1].store(1.f);
+        Renderer coldRenderer;
+        Graph coldGraph{{cold}, {}, 1};
+        int sampleIndex = 0;
+        for (; sampleIndex < initialBatch; ++sampleIndex)
+            CHECK(cold->audio.push({sampleIndex / 48000.0, 1.f, 10}));
+        coldRenderer.render(coldGraph, Format{4, 1, 30000, 1001}, 0, 0);
+        for (float value : cold->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+        coldRenderer.render(coldGraph, Format{4, 1, 30000, 1001}, 1,
+                            1001.0 / 30000.0); // empty capture tick preserves the short batch
+        for (float value : cold->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+        for (int added = 0; added < 1600; ++added, ++sampleIndex)
+            CHECK(cold->audio.push({sampleIndex / 48000.0, 1.f, 10}));
+        coldRenderer.render(coldGraph, Format{4, 1, 30000, 1001}, 2,
+                            2.0 * 1001.0 / 30000.0);
+        for (float value : cold->display()->outputs[0]->pixels) NEAR(value, 1.f, 1e-5f);
+        coldRenderer.render(coldGraph, Format{4, 1, 30000, 1001}, 3,
+                            3.0 * 1001.0 / 30000.0); // no new capture: never replay stale data
+        for (float value : cold->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+    }
+
     auto slower = std::make_shared<Node>(Kind::CvBridge);
     slower->params[0].store(1.f);
     slower->params[1].store(1.f);
