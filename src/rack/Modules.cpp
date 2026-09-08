@@ -507,23 +507,37 @@ inline StatusSeverity classifyStatus(const std::string& status) {
         "exceeds", "failed", "rejected", "incomplete", "unavailable",
         "missing", "ambiguous", "multiple", "duplicate", "non-finite",
         "non-monotonic", "underrun", "evicted", "reanchored", "dropped",
-        "unsupported"
+        "unsupported", "could not"
     };
     if (std::any_of(std::begin(problemTerms), std::end(problemTerms),
             [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
         return StatusSeverity::Problem;
     static const char* const waitingTerms[] = {"starting", "waiting", "preview"};
-    if (std::any_of(std::begin(waitingTerms), std::end(waitingTerms),
-            [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
-        return StatusSeverity::Waiting;
     static const char* const healthyTerms[] = {
         "ready", "receiving ", "publishing ", "input idle", "publishing off",
         "bypassed"
     };
-    if (std::any_of(std::begin(healthyTerms), std::end(healthyTerms),
-            [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
-        return StatusSeverity::Healthy;
-    return StatusSeverity::Problem;
+    bool sawRecognized = false;
+    bool sawWaiting = false;
+    for (size_t begin = 0; begin <= folded.size();) {
+        const size_t end = folded.find(';', begin);
+        const std::string segment = folded.substr(begin,
+            end == std::string::npos ? std::string::npos : end - begin);
+        const bool waiting = std::any_of(std::begin(waitingTerms), std::end(waitingTerms),
+            [&segment](const char* term) { return segment.find(term) != std::string::npos; });
+        const bool healthy = std::any_of(std::begin(healthyTerms), std::end(healthyTerms),
+            [&segment](const char* term) { return segment.find(term) != std::string::npos; });
+        if (!waiting && !healthy)
+            return StatusSeverity::Problem;
+        sawRecognized = true;
+        sawWaiting = sawWaiting || waiting;
+        if (end == std::string::npos)
+            break;
+        begin = end + 1;
+    }
+    return sawRecognized
+        ? (sawWaiting ? StatusSeverity::Waiting : StatusSeverity::Healthy)
+        : StatusSeverity::Problem;
 }
 
 struct StatusText : widget::Widget {

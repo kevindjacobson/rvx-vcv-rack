@@ -79,8 +79,12 @@ int main() {
         == StatusSeverity::Problem);
     assert(classifyStatus("Syphon input source is ambiguous")
         == StatusSeverity::Problem);
+    assert(classifyStatus("Syphon input could not connect; publishing RVX")
+        == StatusSeverity::Problem);
     assert(classifyStatus("backend unavailable") == StatusSeverity::Problem);
     assert(classifyStatus("unrecognized backend state") == StatusSeverity::Problem);
+    assert(classifyStatus("unrecognized backend state; publishing RVX")
+        == StatusSeverity::Problem);
 
 #if defined(__clang__)
 #pragma clang diagnostic push
