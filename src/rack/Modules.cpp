@@ -517,7 +517,8 @@ inline StatusSeverity classifyStatus(const std::string& status) {
             [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
         return StatusSeverity::Waiting;
     static const char* const healthyTerms[] = {
-        "ready", "receiving ", "publishing ", "input idle", "publishing off"
+        "ready", "receiving ", "publishing ", "input idle", "publishing off",
+        "bypassed"
     };
     if (std::any_of(std::begin(healthyTerms), std::end(healthyTerms),
             [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
@@ -544,8 +545,8 @@ struct StatusText : widget::Widget {
         else if (status.empty())
             status = "Ready";
         const StatusSeverity severity = classifyStatus(status);
-        const bool problem = severity == StatusSeverity::Problem;
-        const bool waiting = severity == StatusSeverity::Waiting;
+        const bool problem = !bypassed && severity == StatusSeverity::Problem;
+        const bool waiting = !bypassed && severity == StatusSeverity::Waiting;
         const NVGcolor stateColor = bypassed ? theme::bypass()
             : problem ? theme::alert() : waiting ? theme::amber() : theme::signal();
         nvgBeginPath(args.vg);
