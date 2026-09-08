@@ -4,7 +4,7 @@ This sheet defines the shared visual language for the six implemented RVX module
 
 ## Reference boundary
 
-The source collection is the private `kevindjacobson/idea-box` repository at commit `664f1dd6ff587312b2e90ab427825cd9140094ae`. The reviewed notes were *Evangelion Interface Language*, *Evangelion UI Aesthetic*, and the shared *Evangelion UI Sound Design Experiments* capture. Four LFS frames were inspected and verified against the supplied manifest:
+The source collection is the user-provided private reference set at commit `664f1dd6ff587312b2e90ab427825cd9140094ae`. The reviewed notes were *Evangelion Interface Language*, *Evangelion UI Aesthetic*, and the shared *Evangelion UI Sound Design Experiments* capture. Four LFS frames were inspected and verified against the supplied manifest:
 
 | Frame | SHA-256 | Observed feature used by RVX |
 |---|---|---|
@@ -42,7 +42,7 @@ Status cells show only `NodeDisplay::status` and existing adapter errors. Green 
 
 ## Physical layout
 
-All module widths and control/port order stay unchanged. Test Image, Signal Processor, CV Bridge, Video Monitor, and Video I/O retain every current control center. Frame Delay moves only its status cell slightly upward and gives the Frames value a larger dedicated readout while preserving the Frames knob, Clear button, image/clear inputs, and delayed output centers. The value remains snapped to the implemented integer range 1–60.
+All module widths and every control/port center stay unchanged. The visible knob and hit diameter becomes 12 mm, with static scales behind it; ordinary voltage jacks use a 7.2 mm square asset. Frame Delay expands its Frames readout from 14 × 8 mm to 18 × 8 mm around the same center while preserving the Frames knob, Clear button, status cell, image/clear inputs, and delayed output. The value remains snapped to the implemented integer range 1–60. The monitor preview retains its 71 × 82 mm image area and receives no visual processing.
 
 The two reference mockups resolve the system before source rollout:
 
