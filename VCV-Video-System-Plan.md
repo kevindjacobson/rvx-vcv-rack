@@ -140,6 +140,8 @@ Completion requires tests for all four routings, exact delay indexing, capture/f
 
 **8. NTSC and dirty mixing**
 
+Preliminary, deferred design notes for the user-requested video → ordinary Rack waveform → video path are recorded in the [video/audio round-trip design notes](docs/VIDEO-AUDIO-ROUNDTRIP.md) for issue #16; they do not authorize implementation. Its slowed composite and real-time coarse raster modes remain proposed supplements to this subsystem; ordinary audio cables cannot carry full-bandwidth NTSC at normal speed. The sequence before coding is: finish prototype #13; settle the shared contracts in #3; establish the Syphon boundary in #5; complete #7's NTSC specification and place the waveform work in its implementation sequence; use #9 to confirm release placement and obtain coding approval; then implement #16. Memory Palace #6 can coordinate optional later feedback integration, but is not a prerequisite for the feedforward path.
+
 Treat this as a patchable subsystem with three modules: Encoder, Dirty Mixer and Receiver. A convenience combined panel can come later. Keep clean RGB mixing available separately.
 
 | Module | Proposed controls and semantics |
