@@ -37,20 +37,33 @@ uint64_t estimatedFrameBytes(const Graph& graph, const Format& format) {
     const uint64_t pixels = static_cast<uint64_t>(format.width) * format.height;
     const uint64_t image = pixels * 4ull * sizeof(float);
     const uint64_t field = pixels * sizeof(float);
-    // Black plus unity/zero fields are shared working inputs. NodeDisplay retains the prior
-    // completed generation until the new displays are published, so generated outputs are doubled.
-    // I/O also includes retained receive and boundary publication conversion copies.
+    // Black plus unity/zero fields are shared working inputs. Count current-tick allocations here,
+    // then add every unique frame retained by the prior NodeDisplays below. I/O includes current
+    // receive/export copies plus one conservative backend-retained publication.
     uint64_t result = image + 2 * field;
     for (const auto& node : graph.nodes) {
         if (!node) continue;
         switch (node->kind) {
-        case Kind::TestImage: result += 2 * (image + field); break;
-        case Kind::Processor: result += 2 * (image + field); break;
-        case Kind::CvBridge: result += 2 * field; break;
-        case Kind::Delay: result += 2 * image; break;
+        case Kind::TestImage: result += image + field; break;
+        case Kind::Processor: result += image + field; break;
+        case Kind::CvBridge: result += field; break;
+        case Kind::Delay: result += image; break;
         case Kind::Monitor: break;
-        case Kind::VideoIo: result += 4 * image; break;
+        case Kind::VideoIo: result += 3 * image; break;
         }
+        if (result > kFrameBudgetBytes) return result;
+    }
+    std::unordered_set<const Frame*> retained;
+    for (const auto& node : graph.nodes) {
+        if (!node) continue;
+        const auto display = node->display();
+        if (!display) continue;
+        for (const auto& frame : display->outputs) {
+            if (frame && retained.insert(frame.get()).second)
+                result += frame->pixels.size() * sizeof(float);
+        }
+        if (display->preview && retained.insert(display->preview.get()).second)
+            result += display->preview->pixels.size() * sizeof(float);
         if (result > kFrameBudgetBytes) return result;
     }
     return result;
@@ -258,7 +271,12 @@ void Node::publishDisplay(std::shared_ptr<const NodeDisplay> value) {
 struct Renderer::Impl {
     struct Binding { size_t source = 0; int output = 0; bool connected = false; };
     struct DelayState { FramePtr history; bool clearPressed = false; };
-    struct TestState { double phase = 0; double lastSeconds = 0; bool haveTime = false; };
+    struct TestState {
+        double phase = 0;
+        double lastSeconds = 0;
+        float priorSpeed = 0;
+        bool haveTime = false;
+    };
     struct CvState {
         std::deque<AudioSample> samples;
         uint64_t epoch = 0;
@@ -268,6 +286,8 @@ struct Renderer::Impl {
         double anchorAudioEndSeconds = 0;
         uint64_t pendingTriggers = 0;
         uint64_t discardedTriggers = 0;
+        uint64_t historyEvictions = 0;
+        uint64_t clockReanchors = 0;
     };
     struct IoState { std::unique_ptr<VideoBackend> backend; FramePtr lastReceived; };
 
@@ -288,7 +308,13 @@ struct Renderer::Impl {
             return;
         delays.clear();
         tests.clear();
-        bridges.clear();
+        for (auto& item : bridges) {
+            auto& state = item.second;
+            state.samples.clear();
+            state.haveEpoch = false;
+            state.haveTimeMapping = false;
+            state.pendingTriggers = 0;
+        }
         for (auto& item : io) item.second.lastReceived.reset();
         activeFormat = format;
         haveFormat = true;
@@ -517,10 +543,13 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 state.lastSeconds = std::isfinite(seconds) ? seconds : 0;
                 state.haveTime = true;
             } else {
-                state.phase += (seconds - state.lastSeconds) * static_cast<double>(speed);
+                // The elapsed interval belongs to the speed latched on the prior tick. The newly
+                // latched speed controls this frame's ordered raster slope and the next interval.
+                state.phase += (seconds - state.lastSeconds) * static_cast<double>(state.priorSpeed);
                 state.phase -= std::floor(state.phase);
                 state.lastSeconds = seconds;
             }
+            state.priorSpeed = speed;
             if (bypassed[index]) {
                 outputs[index][0] = black;
                 outputs[index][1] = zero;
@@ -638,6 +667,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             const double duration = static_cast<double>(format.rateDenominator) /
                                     static_cast<double>(format.rateNumerator);
             AudioSample sample;
+            bool epochChanged = false;
+            size_t acceptedSamples = 0;
             auto resetCapturedState = [&] {
                 state.samples.clear();
                 state.haveEpoch = false;
@@ -659,6 +690,7 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                         state.haveEpoch = true;
                         state.haveTimeMapping = false;
                         state.pendingTriggers = 0;
+                        epochChanged = true;
                     }
                     if (!std::isfinite(sample.seconds) || !std::isfinite(sample.voltage)) {
                         ++report.errors;
@@ -671,8 +703,11 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                         continue;
                     }
                     state.samples.push_back(sample);
-                    if (state.samples.size() > kMaxAudioHistory)
+                    ++acceptedSamples;
+                    if (state.samples.size() > kMaxAudioHistory) {
                         state.samples.pop_front();
+                        ++state.historyEvictions;
+                    }
                 }
             }
             if (!state.haveTimeMapping && !state.samples.empty()) {
@@ -682,7 +717,11 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 state.anchorAudioEndSeconds = state.samples.back().seconds;
                 state.haveTimeMapping = true;
             }
-            if (!bypassed[index] && !reset) {
+            if (epochChanged) {
+                // Trigger counters have no epoch tag. An observed audio epoch boundary therefore
+                // discards the complete atomic trigger batch visible at this frame boundary.
+                graph.nodes[index]->triggers.exchange(0, std::memory_order_acq_rel);
+            } else if (!bypassed[index] && !reset) {
                 const uint64_t arrived = graph.nodes[index]->triggers.exchange(0, std::memory_order_acq_rel);
                 if (arrived > kMaxPendingTriggers - state.pendingTriggers) {
                     state.discardedTriggers += arrived -
@@ -706,13 +745,31 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 std::fill(field->pixels.begin(), field->pixels.end(), value);
                 if (state.pendingTriggers) --state.pendingTriggers;
             } else {
-                const double end = state.anchorAudioEndSeconds + (seconds - state.anchorRenderSeconds);
-                const double begin = end - duration;
+                double end = state.anchorAudioEndSeconds + (seconds - state.anchorRenderSeconds);
+                double begin = end - duration;
                 constexpr double timestampTolerance = 1e-9;
+                bool windowAvailable = !state.samples.empty() &&
+                    begin + timestampTolerance >= state.samples.front().seconds &&
+                    end - timestampTolerance <= state.samples.back().seconds;
+                const bool producerAhead = !state.samples.empty() &&
+                    state.samples.back().seconds - end > duration;
+                const bool fullNewestWindow = !state.samples.empty() &&
+                    state.samples.back().seconds - state.samples.front().seconds +
+                        timestampTolerance >= duration;
+                if (acceptedSamples && fullNewestWindow && (!windowAvailable || producerAhead)) {
+                    end = state.samples.back().seconds;
+                    begin = end - duration;
+                    state.anchorRenderSeconds = seconds;
+                    state.anchorAudioEndSeconds = end;
+                    ++state.clockReanchors;
+                    windowAvailable = begin + timestampTolerance >= state.samples.front().seconds;
+                }
                 while (state.samples.size() > 2 && state.samples[1].seconds < begin)
                     state.samples.pop_front();
-                if (state.samples.empty() || begin + timestampTolerance < state.samples.front().seconds ||
-                    end - timestampTolerance > state.samples.back().seconds)
+                windowAvailable = windowAvailable && !state.samples.empty() &&
+                    begin + timestampTolerance >= state.samples.front().seconds &&
+                    end - timestampTolerance <= state.samples.back().seconds;
+                if (!windowAvailable)
                     appendStatus(statuses[index], "audio history underrun");
                 auto interpolate = [&](double at) {
                     if (state.samples.empty()) return 0.f;
@@ -732,16 +789,24 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                     const float amount = static_cast<float>((at - left.seconds) / span);
                     return left.voltage + (right.voltage - left.voltage) * amount;
                 };
-                const size_t pixels = field->pixels.size();
-                for (size_t p = 0; p < pixels; ++p) {
-                    const double amount = pixels == 1 ? 0.0 :
-                        static_cast<double>(p) / static_cast<double>(pixels - 1);
-                    field->pixels[p] = finiteOrZero(interpolate(begin + (end - begin) * amount) *
-                                                    scale + offset, report.errors);
+                if (windowAvailable) {
+                    const size_t pixels = field->pixels.size();
+                    for (size_t p = 0; p < pixels; ++p) {
+                        const double amount = pixels == 1 ? 0.0 :
+                            static_cast<double>(p) / static_cast<double>(pixels - 1);
+                        field->pixels[p] = finiteOrZero(interpolate(begin + (end - begin) * amount) *
+                                                        scale + offset, report.errors);
+                    }
                 }
             }
             if (state.discardedTriggers)
                 appendStatus(statuses[index], "trigger overflow " + std::to_string(state.discardedTriggers));
+            if (state.historyEvictions)
+                appendStatus(statuses[index], "audio history evicted " +
+                             std::to_string(state.historyEvictions));
+            if (state.clockReanchors)
+                appendStatus(statuses[index], "audio clock reanchored " +
+                             std::to_string(state.clockReanchors));
             const uint64_t droppedAudio = graph.nodes[index]->audio.dropped.load(std::memory_order_relaxed);
             if (droppedAudio)
                 appendStatus(statuses[index], "audio queue dropped " + std::to_string(droppedAudio));

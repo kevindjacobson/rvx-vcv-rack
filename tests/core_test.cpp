@@ -122,10 +122,23 @@ void testRasterPhaseOrdering() {
     renderer.render(graph, format, 1, 0.5);
     const FramePtr second = source->display()->outputs[1];
     NEAR(second->pixels.front() - first->pixels.back(), step, 1e-6f);
+
+    auto automated = std::make_shared<Node>(Kind::TestImage);
+    automated->params[0].store(3.f);
+    automated->params[1].store(1.f);
+    Renderer automatedRenderer;
+    Graph automatedGraph{{automated}, {}, 1};
+    const Format automatedFormat{8, 1, 10, 1};
+    automatedRenderer.render(automatedGraph, automatedFormat, 0, 0);
+    NEAR(automated->display()->outputs[1]->pixels.back(), .0875f, 1e-6f);
+    automated->params[1].store(2.f);
+    automatedRenderer.render(automatedGraph, automatedFormat, 1, .1);
+    NEAR(automated->display()->outputs[1]->pixels.front(), .1f, 1e-6f);
+    NEAR(automated->display()->outputs[1]->pixels[1], .125f, 1e-6f);
 }
 
 void testPhaseSpeedAllPatterns() {
-    const Format format{8, 2, 2, 1};
+    const Format format{64, 2, 2, 1};
     for (int pattern = 0; pattern < 4; ++pattern) {
         auto source = std::make_shared<Node>(Kind::TestImage);
         source->params[0].store(static_cast<float>(pattern));
@@ -148,6 +161,7 @@ void testPhaseSpeedAllPatterns() {
         CHECK(source->display()->outputs[0]->pixels == stopped);
         source->params[1].store(-1.f);
         renderer.render(graph, format, 5, 1.5);
+        renderer.render(graph, format, 6, 1.75);
         CHECK(source->display()->outputs[0]->pixels != stopped);
     }
 }
@@ -185,11 +199,19 @@ void testInvalidEdgesFormatsAndCycles() {
     CHECK(report.errors == 1);
     CHECK(processor->display()->status.find("512 MiB") != std::string::npos);
 
-    std::vector<std::shared_ptr<Node>> manySources;
-    for (int i = 0; i < 70; ++i) manySources.push_back(std::make_shared<Node>(Kind::TestImage));
-    report = renderer.render(Graph{manySources, {}, 5}, Format{}, 5, 0.3);
+    auto retainedMonitor = std::make_shared<Node>(Kind::Monitor);
+    Renderer retainedRenderer;
+    report = retainedRenderer.render(Graph{{retainedMonitor}, {}, 6},
+                                     Format{1024, 2048, 30, 1}, 6, 0.4);
+    CHECK(report.errors == 0);
+    auto largeSource = std::make_shared<Node>(Kind::TestImage);
+    std::vector<std::shared_ptr<Node>> nearBudget{retainedMonitor, largeSource};
+    for (int i = 0; i < 10; ++i)
+        nearBudget.push_back(std::make_shared<Node>(Kind::Processor));
+    report = retainedRenderer.render(Graph{nearBudget, {}, 7},
+                                     Format{2048, 1024, 30, 1}, 7, 0.5);
     CHECK(report.errors == 1);
-    CHECK(manySources.front()->display()->status.find("512 MiB") != std::string::npos);
+    CHECK(retainedMonitor->display()->status.find("512 MiB") != std::string::npos);
 }
 
 void testFormatChangeClearsRasterState() {
@@ -319,8 +341,11 @@ void testCvAudioEpochAndTriggers() {
 
     bridge->triggers.store(3);
     renderer.render(graph, format, 34, 3.4); // leaves two pending events
+    bridge->triggers.fetch_add(2);
     CHECK(bridge->audio.push({0.0, 1.f, 6}));
     renderer.render(graph, format, 35, 3.5); // new audio epoch clears stale triggers
+    NEAR(bridge->display()->outputs[0]->pixels[0], 0.f, 0.f);
+    renderer.render(graph, format, 36, 3.6);
     NEAR(bridge->display()->outputs[0]->pixels[0], 0.f, 0.f);
 }
 
@@ -352,6 +377,66 @@ void testCvBypassAndAudioOverflow() {
     CHECK(overflow->display()->status.find("audio queue dropped 3") != std::string::npos);
     renderer.render(Graph{{overflow}, {}, 2}, format, 4, 0.2);
     CHECK(overflow->display()->status.find("audio queue dropped 3") != std::string::npos);
+
+    auto retained = std::make_shared<Node>(Kind::CvBridge);
+    Graph retainedGraph{{retained}, {}, 3};
+    for (int batch = 0; batch < 3; ++batch) {
+        for (int i = 0; i < 32767; ++i)
+            CHECK(retained->audio.push({(batch * 32767 + i) / 48000.0, 1.f, 1}));
+        renderer.render(retainedGraph, format, 5 + batch, 0.3 + batch / 30.0);
+    }
+    CHECK(retained->audio.dropped.load() == 0);
+    CHECK(retained->display()->status.find("audio history evicted 32765") != std::string::npos);
+}
+
+void testCvClockDriftRecovery() {
+    const Format format{4, 1, 10, 1};
+    auto pushInterval = [](const std::shared_ptr<Node>& bridge, double begin, double end,
+                           uint64_t epoch, int samples = 10) {
+        for (int sample = 1; sample <= samples; ++sample) {
+            const double amount = static_cast<double>(sample) / samples;
+            CHECK(bridge->audio.push({begin + (end - begin) * amount, 1.f, epoch}));
+        }
+    };
+
+    auto slower = std::make_shared<Node>(Kind::CvBridge);
+    slower->params[0].store(1.f);
+    slower->params[1].store(1.f);
+    Renderer slowerRenderer;
+    Graph slowerGraph{{slower}, {}, 1};
+    CHECK(slower->audio.push({0.0, 1.f, 1}));
+    pushInterval(slower, 0.0, 0.1, 1);
+    slowerRenderer.render(slowerGraph, format, 0, 10.0);
+    double producerTime = 0.1;
+    for (int tick = 1; tick <= 30; ++tick) {
+        const double next = producerTime + .099; // producer clock is 1% slower
+        pushInterval(slower, producerTime, next, 1, 7 + (tick % 3) * 3);
+        slowerRenderer.render(slowerGraph, format, tick, 10.0 + tick * .1);
+        NEAR(slower->display()->outputs[0]->pixels[0], 1.f, 1e-5f);
+        producerTime = next;
+    }
+    CHECK(slower->display()->status.find("audio clock reanchored") != std::string::npos);
+    slowerRenderer.render(slowerGraph, format, 31, 13.1); // producer stopped: do not replay
+    for (float value : slower->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+
+    auto faster = std::make_shared<Node>(Kind::CvBridge);
+    faster->params[0].store(1.f);
+    faster->params[1].store(1.f);
+    Renderer fasterRenderer;
+    Graph fasterGraph{{faster}, {}, 1};
+    CHECK(faster->audio.push({0.0, 1.f, 2}));
+    pushInterval(faster, 0.0, 0.1, 2);
+    fasterRenderer.render(fasterGraph, format, 0, 20.0);
+    producerTime = 0.1;
+    for (int tick = 1; tick <= 130; ++tick) {
+        const double next = producerTime + .101; // producer clock is 1% faster
+        pushInterval(faster, producerTime, next, 2, 6 + (tick % 4) * 2);
+        fasterRenderer.render(fasterGraph, format, tick, 20.0 + tick * .1);
+        NEAR(faster->display()->outputs[0]->pixels[0], 1.f, 1e-5f);
+        producerTime = next;
+    }
+    CHECK(faster->display()->status.find("audio clock reanchored") != std::string::npos);
+    CHECK(faster->display()->status.find("audio history evicted") == std::string::npos);
 }
 
 void testImageNodeBypass() {
@@ -559,6 +644,7 @@ int main() {
     testFormatChangeClearsRasterState();
     testCvAudioEpochAndTriggers();
     testCvBypassAndAudioOverflow();
+    testCvClockDriftRecovery();
     testImageNodeBypass();
     testBackendBoundaryAndHold();
     testBackendWorkerLifetime();
