@@ -376,7 +376,13 @@ struct Renderer::Impl {
         uint64_t historyEvictions = 0;
         uint64_t clockReanchors = 0;
     };
-    struct IoState { std::unique_ptr<VideoBackend> backend; FramePtr lastReceived; };
+    struct IoState {
+        std::unique_ptr<VideoBackend> backend;
+        FramePtr lastReceived;
+        IoSettings selection;
+        bool haveSelection = false;
+        bool publisherMayBeActive = false;
+    };
 
     explicit Impl(VideoBackendFactory value) : factory(std::move(value)) {}
 
@@ -418,6 +424,16 @@ struct Renderer::Impl {
             it = live.count(it->first) ? std::next(it) : bridges.erase(it);
         for (auto it = io.begin(); it != io.end();)
             it = live.count(it->first) ? std::next(it) : io.erase(it);
+    }
+
+    void stopPublisher(uint64_t key, IoSettings settings) {
+        auto found = io.find(key);
+        if (found == io.end() || !found->second.backend ||
+            !found->second.publisherMayBeActive)
+            return;
+        settings.publish = false;
+        found->second.backend->publish(settings, {});
+        found->second.publisherMayBeActive = false;
     }
 };
 
@@ -520,6 +536,21 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         : 0;
     if (!formatIsValid || tooManyNodes || estimatedBytes > kFrameBudgetBytes) {
         ++report.errors;
+        std::unordered_set<uint64_t> checkedPublishers;
+        std::unordered_set<uint64_t> publisherStopFailures;
+        for (const auto& node : graph.nodes) {
+            if (!node || node->kind != Kind::VideoIo ||
+                !checkedPublishers.insert(node->key).second)
+                continue;
+            const IoSettings settings = node->ioSettings();
+            const bool bypassed = node->bypass.load(std::memory_order_relaxed);
+            if (settings.publish && !bypassed) continue;
+            try { impl_->stopPublisher(node->key, settings); }
+            catch (...) {
+                ++report.errors;
+                publisherStopFailures.insert(node->key);
+            }
+        }
         for (const auto& node : graph.nodes) {
             if (!node) continue;
             auto display = std::make_shared<NodeDisplay>();
@@ -530,6 +561,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 display->status = "video graph exceeds node limit";
             else
                 display->status = "video graph exceeds 512 MiB frame budget";
+            if (publisherStopFailures.count(node->key))
+                appendStatus(display->status, "backend stop failed");
             node->publishDisplay(display);
         }
         // The estimate above includes future capacity reservations. Preserve frameBytes as an
@@ -657,6 +690,15 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         const auto& node = *graph.nodes[index];
         auto& state = impl_->io[node.key];
         ioSettings[index] = node.ioSettings();
+        const bool selectionChanged = !state.haveSelection ||
+            state.selection.sourceId != ioSettings[index].sourceId ||
+            state.selection.sourceApplication != ioSettings[index].sourceApplication ||
+            state.selection.sourceName != ioSettings[index].sourceName;
+        if (selectionChanged) {
+            state.lastReceived.reset();
+            state.selection = ioSettings[index];
+            state.haveSelection = true;
+        }
         if (bypassed[index]) {
             outputs[index][0] = black;
             continue;
@@ -1063,9 +1105,7 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         auto found = impl_->io.find(graph.nodes[index]->key);
         if (bypassed[index]) {
             if (found != impl_->io.end() && found->second.backend) {
-                IoSettings disabled = ioSettings[index];
-                disabled.publish = false;
-                try { found->second.backend->publish(disabled, {}); }
+                try { impl_->stopPublisher(graph.nodes[index]->key, ioSettings[index]); }
                 catch (...) {
                     ++report.errors;
                     appendStatus(statuses[index], "backend stop failed");
@@ -1077,15 +1117,18 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             appendStatus(statuses[index], "backend unavailable");
             continue;
         }
-        if (ioSettings[index].publish) {
-            try {
+        try {
+            if (ioSettings[index].publish) {
                 const FramePtr publishInput = input(index, 0) ? input(index, 0) : black;
+                found->second.publisherMayBeActive = true;
                 found->second.backend->publish(
                     ioSettings[index], exportFrame(publishInput, format, report.errors));
-            } catch (...) {
-                ++report.errors;
-                appendStatus(statuses[index], "backend publish failed");
+            } else {
+                impl_->stopPublisher(graph.nodes[index]->key, ioSettings[index]);
             }
+        } catch (...) {
+            ++report.errors;
+            appendStatus(statuses[index], "backend publish failed");
         }
         try { appendStatus(statuses[index], found->second.backend->status()); }
         catch (...) {

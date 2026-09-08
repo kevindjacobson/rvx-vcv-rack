@@ -23,8 +23,13 @@ void check(bool condition, const char* expression, int line) {
 }
 #define CHECK(x) check(static_cast<bool>(x), #x, __LINE__)
 
+bool finiteNear(float actual, float expected, float tolerance) {
+    return std::isfinite(actual) && std::isfinite(expected) && std::isfinite(tolerance) &&
+        tolerance >= 0.f && std::fabs(actual - expected) <= tolerance;
+}
+
 void near(float actual, float expected, float tolerance, int line) {
-    if (std::fabs(actual - expected) > tolerance) {
+    if (!finiteNear(actual, expected, tolerance)) {
         std::cerr << "FAIL line " << line << ": got " << actual << ", expected "
                   << expected << " +/- " << tolerance << '\n';
         ++failures;
@@ -70,6 +75,10 @@ Graph delayGraph(const std::shared_ptr<Node>& source, const std::shared_ptr<Node
 }
 
 void testTypesDefaultsAndQueue() {
+    CHECK(!finiteNear(std::numeric_limits<float>::quiet_NaN(), 0.f, 0.f));
+    CHECK(!finiteNear(0.f, std::numeric_limits<float>::infinity(), 0.f));
+    CHECK(!finiteNear(0.f, 0.f, std::numeric_limits<float>::infinity()));
+
     CHECK(inputType(Kind::Processor, 0) == PortType::Image);
     CHECK(inputType(Kind::Processor, 2) == PortType::Field);
     CHECK(inputType(Kind::Delay, 1) == PortType::Audio);
@@ -792,7 +801,12 @@ void testImageNodeBypass() {
 struct BackendState {
     FramePtr incoming;
     FramePtr published;
+    std::string availableSourceId;
+    std::string availableSourceApplication;
+    std::string availableSourceName;
+    std::string lastPublisherName;
     bool returnFrame = true;
+    bool serverActive = false;
     int receives = 0;
     int publishes = 0;
     bool lastPublishEnabled = false;
@@ -803,14 +817,19 @@ class FakeBackend : public VideoBackend {
 public:
     explicit FakeBackend(std::shared_ptr<BackendState> value) : state(std::move(value)) {}
     std::vector<VideoSource> sources() override { return {{"id", "app", "source"}}; }
-    FramePtr receive(const IoSettings&, const Format&, uint64_t, double) override {
+    FramePtr receive(const IoSettings& settings, const Format&, uint64_t, double) override {
         ++state->receives;
-        return state->returnFrame ? state->incoming : FramePtr{};
+        return state->returnFrame && settings.sourceId == state->availableSourceId &&
+            settings.sourceApplication == state->availableSourceApplication &&
+            settings.sourceName == state->availableSourceName
+            ? state->incoming : FramePtr{};
     }
     void publish(const IoSettings& settings, FramePtr frame) override {
         ++state->publishes;
+        state->serverActive = settings.publish;
         state->lastPublishEnabled = settings.publish;
         state->lastPublishHadFrame = frame != nullptr;
+        state->lastPublisherName = settings.publisherName;
         state->published = std::move(frame);
     }
     std::string status() const override { return "ready"; }
@@ -868,6 +887,142 @@ void testBackendBoundaryAndHold() {
     io->setIoSettings(settings);
     renderer.render(graph, format, 4, 4.0 / 30.0);
     NEAR(pixel(io->display()->outputs[0], 0, 0, 0), 0.f, 0.f);
+}
+
+void testIoSettingTransitions() {
+    const Format format{1, 1, 30, 1};
+    auto state = std::make_shared<BackendState>();
+    auto incoming = std::make_shared<Frame>();
+    incoming->width = incoming->height = 1;
+    incoming->channels = 4;
+    incoming->pixels = {.75f, .75f, .75f, 1.f};
+    state->incoming = incoming;
+    state->availableSourceId = "id-A";
+    state->availableSourceApplication = "app";
+    state->availableSourceName = "A";
+
+    Renderer renderer([state] { return std::make_unique<FakeBackend>(state); });
+    auto io = std::make_shared<Node>(Kind::VideoIo);
+    Graph graph{{io}, {}, 1};
+    IoSettings settings;
+    settings.sourceId = "id-A";
+    settings.sourceApplication = "app";
+    settings.sourceName = "A";
+    settings.publisherName = "first";
+    settings.publish = true;
+    settings.holdLast = true;
+    io->setIoSettings(settings);
+
+    renderer.render(graph, format, 0, 0.0);
+    CHECK(state->publishes == 1 && state->lastPublishEnabled && state->lastPublishHadFrame);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .75f, 0.f);
+
+    // Publisher-only settings do not invalidate a held frame from the same source.
+    state->returnFrame = false;
+    settings.publisherName = "second";
+    settings.publish = false;
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 1, 1.0 / 30.0);
+    CHECK(state->publishes == 2 && !state->lastPublishEnabled && !state->lastPublishHadFrame);
+    CHECK(state->lastPublisherName == "second");
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .75f, 0.f);
+
+    settings.publish = true;
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 2, 2.0 / 30.0);
+    CHECK(state->publishes == 3 && state->lastPublishEnabled && state->lastPublishHadFrame);
+    CHECK(state->lastPublisherName == "second");
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .75f, 0.f);
+
+    // A UUID change identifies a new selection even when its labels match.
+    settings.sourceId = "id-B";
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 3, 3.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), 0.f, 0.f);
+
+    state->availableSourceId = "id-B";
+    state->returnFrame = true;
+    incoming->pixels[0] = .25f;
+    renderer.render(graph, format, 4, 4.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .25f, 0.f);
+
+    // Missing input may hold the last frame only while the selection stays the same.
+    state->returnFrame = false;
+    renderer.render(graph, format, 5, 5.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .25f, 0.f);
+    settings.sourceApplication = "other app";
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 6, 6.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), 0.f, 0.f);
+
+    state->availableSourceApplication = "other app";
+    state->returnFrame = true;
+    incoming->pixels[0] = .5f;
+    renderer.render(graph, format, 7, 7.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .5f, 0.f);
+
+    state->returnFrame = false;
+    renderer.render(graph, format, 8, 8.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), .5f, 0.f);
+    settings.sourceName = "B";
+    io->setIoSettings(settings);
+    renderer.render(graph, format, 9, 9.0 / 30.0);
+    NEAR(pixel(io->display()->outputs[0], 0, 0), 0.f, 0.f);
+}
+
+void testRejectedGraphPublisherTeardown() {
+    const Format format{720, 480, 30000, 1001};
+    auto state = std::make_shared<BackendState>();
+    Renderer renderer([state] { return std::make_unique<FakeBackend>(state); });
+    auto io = std::make_shared<Node>(Kind::VideoIo);
+    IoSettings settings;
+    settings.publish = true;
+    io->setIoSettings(settings);
+    Graph valid{{io}, {}, 1};
+
+    CHECK(renderer.render(valid, format, 0, 0.0).errors == 0);
+    CHECK(state->serverActive && state->publishes == 1 && state->receives == 1);
+
+    Graph rejected = valid;
+    for (int i = 0; i < 80; ++i)
+        rejected.nodes.push_back(std::make_shared<Node>(Kind::TestImage));
+    const int receivesBeforeRejection = state->receives;
+    const int publishesBeforeRejection = state->publishes;
+    CHECK(renderer.render(rejected, format, 1, 1.0 / 30.0).errors == 1);
+    CHECK(state->serverActive && state->receives == receivesBeforeRejection);
+    CHECK(state->publishes == publishesBeforeRejection);
+    CHECK(!rejected.nodes.back()->display()->outputs[0]);
+
+    settings.publish = false;
+    io->setIoSettings(settings);
+    CHECK(renderer.render(rejected, format, 2, 2.0 / 30.0).errors == 1);
+    CHECK(!state->serverActive && state->receives == receivesBeforeRejection);
+    CHECK(state->publishes == publishesBeforeRejection + 1);
+    CHECK(!state->lastPublishEnabled && !state->lastPublishHadFrame);
+
+    // Repeating a rejected disabled graph does not issue redundant stop calls.
+    CHECK(renderer.render(rejected, format, 3, 3.0 / 30.0).errors == 1);
+    CHECK(state->publishes == publishesBeforeRejection + 1);
+    CHECK(state->receives == receivesBeforeRejection);
+
+    settings.publish = true;
+    io->setIoSettings(settings);
+    CHECK(renderer.render(valid, format, 4, 4.0 / 30.0).errors == 0);
+    CHECK(state->serverActive && state->receives == receivesBeforeRejection + 1);
+    CHECK(state->publishes == publishesBeforeRejection + 2);
+
+    io->bypass.store(true);
+    const int receivesBeforeBypass = state->receives;
+    CHECK(renderer.render(rejected, format, 5, 5.0 / 30.0).errors == 1);
+    CHECK(!state->serverActive && state->receives == receivesBeforeBypass);
+    CHECK(state->publishes == publishesBeforeRejection + 3);
+    CHECK(renderer.render(rejected, format, 6, 6.0 / 30.0).errors == 1);
+    CHECK(state->publishes == publishesBeforeRejection + 3);
+
+    io->bypass.store(false);
+    CHECK(renderer.render(valid, format, 7, 7.0 / 30.0).errors == 0);
+    CHECK(state->serverActive && state->receives == receivesBeforeBypass + 1);
+    CHECK(state->publishes == publishesBeforeRejection + 4);
 }
 
 struct ThreadBackendState {
@@ -1041,6 +1196,8 @@ int main() {
     testCvClockDriftRecovery();
     testImageNodeBypass();
     testBackendBoundaryAndHold();
+    testIoSettingTransitions();
+    testRejectedGraphPublisherTeardown();
     testBackendWorkerLifetime();
     testEngineIndependentClock();
     testWorkerRunIdentifiers();

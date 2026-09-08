@@ -4,7 +4,7 @@ RVX is the project and plugin-suite name. The repository is `rvx-vcv-rack`. RVX 
 
 September 7, 2026. Status: full-release design remains proposed. The user explicitly approved building the six-module prototype in issue #13; its implementation, dependency setup and validation are authorized. See [prototype contract](docs/PROTOTYPE.md) for the current experiment and observed target. Unrun acceptance gates remain unverified.
 
-Adjustable Frame Delay is tracked as follow-on issue #18, preserving the prototype's one-frame default with a separate implementation and validation scope. The requested ordinary-audio waveform round trip is deferred in #16 until the prototype and shared signal/Syphon/NTSC prerequisites are ready; its preliminary draft notes are not a release commitment or a dependency of completing this plan.
+Adjustable Frame Delay is implemented as follow-on issue #18, preserving the prototype's one-frame default with a separate implementation and validation scope. The requested ordinary-audio waveform round trip is deferred in #16 until the prototype and shared signal/Syphon/NTSC prerequisites are ready; the preliminary notes merged from PR #17 are not a release commitment or implementation authorization.
 
 The companion [RVX LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
 
@@ -141,6 +141,8 @@ Implementation proposal: expose an integrated memory instrument backed by reusab
 Completion requires tests for all four routings, exact delay indexing, capture/freeze events, key inversion, border modes, source changes and repeated color processing. Pixel-identical firmware matching is unverified; interpolation, precision and edge handling need reference clips or hardware comparisons.
 
 **8. NTSC and dirty mixing**
+
+Preliminary, deferred design notes for the user-requested video → ordinary Rack waveform → video path are recorded in the [video/audio round-trip design notes](docs/VIDEO-AUDIO-ROUNDTRIP.md) for issue #16; they do not authorize implementation. Its slowed composite and real-time coarse raster modes remain proposed supplements to this subsystem; ordinary audio cables cannot carry full-bandwidth NTSC at normal speed. The sequence before coding is: finish prototype #13; settle the shared contracts in #3; establish the Syphon boundary in #5; complete #7's NTSC specification and place the waveform work in its implementation sequence; use #9 to confirm release placement and obtain coding approval; then implement #16. Memory Palace #6 can coordinate optional later feedback integration, but is not a prerequisite for the feedforward path.
 
 Treat this as a patchable subsystem with three modules: Encoder, Dirty Mixer and Receiver. A convenience combined panel can come later. Keep clean RGB mixing available separately.
 

@@ -20,7 +20,7 @@ Audio coexistence requires separate baseline and video-stress evidence at the sa
 
 ## Results
 
-The prototype builds and runs in an isolated Rack 2.6.6 test profile. Independent review covers runtime `2a077dd`, which adds bounded native timing statistics to the previously reviewed `ced3bab` signal implementation. The configured native audio/video/Syphon workload below completed, but subsequent review found that its observer cannot prove external-source contribution. A separate source-bound relay and restart test now provide direct native transport evidence. The PR remains draft because the full combined acceptance, parts of the native lifecycle matrix, physical device reconnect and end-to-end latency remain unverified; Rack-internal audio underrun counters are unavailable. Completed evidence is limited to the scope and revisions below.
+The prototype builds and runs in an isolated Rack 2.6.6 test profile. Independent review covers runtime `2a077dd`, which adds bounded native timing statistics to the previously reviewed `ced3bab` signal implementation. The configured native audio/video/Syphon workload below completed, but subsequent review found that its observer cannot prove external-source contribution. A separate source-bound relay and restart test now provide direct native transport evidence. The user authorized landing the experimental implementation while issue #13 remains open: full combined acceptance, parts of the native lifecycle matrix, physical device reconnect and end-to-end latency remain unverified; Rack-internal audio underrun counters are unavailable. Completed evidence is limited to the scope and revisions below.
 
 | Evidence | Revision / scope | Result |
 |---|---|---|
@@ -121,3 +121,9 @@ Separate native checks used the four-module direct/delayed moving-ramp example i
 | 60, separate worker run | 338,688,000 bytes (323.0 MiB) | 1.450 ms | 0 / 0 / 0 |
 
 The [sanitized observations and snapshots](evidence/native-adjustable-delay-9a33523.json) identify source revisions, fixture hash, cumulative counter scope and measurement limits. The 1/15 snapshots share a worker run containing initialization and undo; their quantiles are not separate benchmarks. This graph has no audio device, Syphon, external source or feedback, and is not a replacement for the pending combined stress suite. Native knob dragging/context-menu parameter entry was not successfully exercised; that remains a manual interaction check. Numerical parameter editing, persistence and reset are covered by the SDK tests. No Memory Palace, interlaced field, NTSC or video-to-audio behavior is established by this utility.
+
+## Video I/O transition repairs before experimental integration
+
+Runtime `fb7cc562ab070c1a71e79653ea59ce868f196a9a` makes publisher disable reach the backend and scopes held input to the selected source ID/application/name. Runtime `3115d573d90f4292074d0dcf7734f8846590a61d` additionally retires a disabled or bypassed publisher when format, node-count or frame-budget validation rejects rendering, without receiving or rendering rejected frames. Same-source hold and publisher-only setting changes preserve received history. Repeated rejected renders avoid redundant stop calls. Numeric test comparisons now reject non-finite operands and tolerances.
+
+Core tests, ASan/UBSan core and independent transition/budget reproducers, the 50-cycle lifecycle suite (51 backend destructions, zero owner-thread violations), Rack adapter/host SDK tests and the pinned Syphon suite pass at `3115d57`. These are source/SDK checks; the older native host and stress observations above keep their original runtime scopes. No native host, physical-device, audiovisual-alignment or combined-stress gate was rerun or closed by these repairs.
