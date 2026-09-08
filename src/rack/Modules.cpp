@@ -132,6 +132,7 @@ struct CvBridgeModule : Module {
     enum InputIds { CV_INPUT, AUDIO_INPUT, TRIGGER_INPUT, NUM_INPUTS };
     enum OutputIds { FIELD_OUTPUT, NUM_OUTPUTS };
     dsp::SchmittTrigger triggerDetector;
+    bool audioQueueGap = false;
 
     CvBridgeModule() : Module(Kind::CvBridge) {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, 0);
@@ -153,7 +154,16 @@ struct CvBridgeModule : Module {
             sample.seconds = audioSeconds_;
             sample.voltage = inputs[AUDIO_INPUT].getVoltage();
             sample.epoch = audioEpoch_;
-            node_->audio.push(sample);
+            if (node_->audio.push(sample)) {
+                audioQueueGap = false;
+            }
+            else if (!audioQueueGap) {
+                // Missing captures break interpolation continuity. Mark one
+                // epoch boundary per overflow burst, while the queue counts drops.
+                ++audioEpoch_;
+                incrementTrigger(node_->resets);
+                audioQueueGap = true;
+            }
         }
         if (triggerDetector.process(inputs[TRIGGER_INPUT].getVoltage()))
             incrementTrigger(node_->triggers);
@@ -162,6 +172,18 @@ struct CvBridgeModule : Module {
     void onReset(const ResetEvent& e) override {
         Module::onReset(e);
         triggerDetector.reset();
+        audioQueueGap = false;
+    }
+
+    void onPortChange(const PortChangeEvent& e) override {
+        if (e.type == engine::Port::INPUT && e.portId == AUDIO_INPUT) {
+            // Rack sample time continues while this input is disconnected.
+            // Reconnection starts a fresh capture run, never an interpolated gap.
+            ++audioEpoch_;
+            incrementTrigger(node_->resets);
+            audioQueueGap = false;
+        }
+        Module::onPortChange(e);
     }
 };
 

@@ -28,6 +28,9 @@ enum class Kind { TestImage, Processor, CvBridge, Delay, Monitor, VideoIo };
 PortType inputType(Kind kind, int port);
 PortType outputType(Kind kind, int port);
 
+// An epoch identifies a continuous capture run. The producer starts a new one
+// on input reconnect, device/frame/rate discontinuity or queue sample loss;
+// timestamps alone cannot identify uncaptured gaps for the interpolator.
 struct AudioSample { double seconds = 0; float voltage = 0; uint64_t epoch = 0; };
 // Exactly one audio producer and one renderer consumer. Drop newest on overflow.
 template <class T, size_t Capacity> class SpscQueue {

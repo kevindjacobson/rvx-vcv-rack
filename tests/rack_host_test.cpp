@@ -208,6 +208,63 @@ int main() {
         context.engine = NULL;
     }
 
+    // Exercise the real capture callback and renderer across a cable gap.
+    {
+        rvx::rackadapter::CvBridgeModule bridge;
+        bridge.params[0].setValue(1.f);
+        bridge.params[1].setValue(1.f);
+        bridge.inputs[1].channels = 1; // Test fixture: Rack engine connection bookkeeping.
+        bridge.inputs[1].setVoltage(1.f);
+        rvx::Renderer renderer;
+        const rvx::Format format{4, 1, 30000, 1001};
+        const double period = 1001.0 / 30000.0;
+        rvx::Graph graph{{bridge.node()}, {}, 1};
+        int64_t frame = 0;
+        auto capture = [&](int count) {
+            for (int i = 0; i < count; ++i, ++frame)
+                bridge.process({48000.f, 1.f / 48000.f, frame});
+        };
+        auto expect = [&](float value) {
+            for (float pixel : bridge.node()->display()->outputs[0]->pixels)
+                assert(std::abs(pixel - value) < 1e-4f);
+        };
+        capture(2000);
+        renderer.render(graph, format, 0, 0);
+        expect(1.f);
+        bridge.inputs[1].channels = 0;
+        bridge.onPortChange({false, rack::engine::Port::INPUT, 1});
+        capture(2800);
+        renderer.render(graph, format, 1, period);
+        expect(0.f);
+        renderer.render(graph, format, 2, 2 * period);
+        expect(0.f);
+        bridge.inputs[1].channels = 1; // Test fixture: Rack engine connection bookkeeping.
+        bridge.inputs[1].setVoltage(20.f);
+        bridge.onPortChange({true, rack::engine::Port::INPUT, 1});
+        capture(1);
+        renderer.render(graph, format, 3, 3 * period);
+        expect(0.f);
+        capture(2000);
+        renderer.render(graph, format, 4, 4 * period);
+        expect(20.f);
+    }
+
+    // Queue loss is another capture discontinuity, counted once per burst.
+    {
+        rvx::rackadapter::CvBridgeModule bridge;
+        bridge.inputs[1].channels = 1; // Test fixture: Rack engine connection bookkeeping.
+        for (int64_t frame = 0; frame < 32770; ++frame)
+            bridge.process({48000.f, 1.f / 48000.f, frame});
+        assert(bridge.node()->audio.dropped.load() == 3);
+        assert(bridge.node()->resets.load() == 1);
+        rvx::AudioSample sample;
+        while (bridge.node()->audio.pop(sample)) {}
+        const uint64_t priorEpoch = sample.epoch;
+        bridge.process({48000.f, 1.f / 48000.f, 32770});
+        assert(bridge.node()->audio.pop(sample));
+        assert(sample.epoch == priorEpoch + 1);
+    }
+
     rack::plugin::plugins.clear();
     delete plugin;
     rack::contextSet(NULL);
