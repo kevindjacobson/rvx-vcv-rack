@@ -34,7 +34,7 @@ The old `#191C26` navy ground with independent cyan and pink accents treated eve
 
 Barlow Condensed is packaged in Regular and SemiBold weights under the SIL Open Font License 1.1. It supplies compact technical labels without copying source glyph artwork. The source revision and hashes are recorded in `licenses/BarlowCondensed-PROVENANCE.md`; Rack's UI font is the predictable runtime fallback if a packaged face cannot load.
 
-Module titles use SemiBold condensed uppercase at 13 px. Section IDs and control labels use SemiBold at 7–9 px with explicit alignment. Status and editable text use Regular at 8–10 px. Text is clipped or ellipsized inside its owning cell; full values remain available through existing menus, editing, and tooltips.
+Module titles use SemiBold condensed uppercase at 13 px. Section IDs and control labels use SemiBold at 7–9 px with explicit alignment. Status and editable text use Regular at 8–10 px. Text is clipped inside its owning cell; full values remain available through existing menus, editing, and tooltips.
 
 Knobs retain Rack's proven interaction target and parameter bindings, with a reusable static calibration ring drawn behind them. Major marks show endpoints and center or nominal position; minor marks are visual graduations and do not claim a transfer function beyond the real parameter range. Video jacks use a green square/diamond frame plus `IMG` or `FLD`; ordinary Rack ports use a gray circular frame plus `CV`, `AUD`, or `TRG`. The Clear button has a red guard frame and remains the existing momentary control.
 

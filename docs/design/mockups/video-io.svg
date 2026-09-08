@@ -20,7 +20,7 @@
   <path d="M9 207h122v35H9zM139 207h122v35H139z" fill="#11130f" stroke="#34382f"/><text class="minor" x="17" y="221">PUBLISH OUTPUT</text><text class="code" x="17" y="235">ON / ACTIVE</text><path d="M116 215h7v19h-7z" fill="#70d99b"/>
   <text class="minor" x="147" y="221">MISSING INPUT</text><text class="data" x="147" y="235">HOLD LAST</text><path d="M246 215h7v19h-7z" fill="#a884c7"/>
   <text class="label" x="15" y="262">04 / ADAPTER STATUS</text>
-  <path d="M9 269h252v50H9z" fill="#0d170f" stroke="#70d99b"/><text class="code" x="17" y="286">READY / RX LOCKED</text><text class="minor" x="17" y="302">720 × 480 / SEQUENCE 018842</text><path d="M218 292h35" stroke="#70d99b"/><path d="M218 286v12m7-8v8m7-8v8m7-12v12m7-8v8m7-8v8" stroke="#70d99b"/>
+  <path d="M9 269h252v50H9z" fill="#0d170f" stroke="#70d99b"/><text class="code" x="17" y="286">SYPHON READY</text><text class="minor" x="17" y="302">STATUS FROM ACTIVE BACKEND</text><path d="M218 292h35" stroke="#70d99b"/><path d="M218 286v12m7-8v8m7-8v8m7-12v12m7-8v8m7-8v8" stroke="#70d99b"/>
   <g><text class="code" x="42" y="339" text-anchor="middle">IMG / TO APP</text><rect x="31" y="346" width="22" height="22" transform="rotate(45 42 357)" fill="#080908" stroke="#70d99b"/><circle cx="42" cy="357" r="8" fill="#161813" stroke="#e8e2cf"/>
   <path d="M73 357h124" stroke="#34382f"/><path d="M85 353v8m20-6v6m20-6v6m20-6v6m20-6v6m20-8v8" stroke="#f29a38"/>
   <text class="code" x="228" y="339" text-anchor="middle">IMG / FROM APP</text><rect x="217" y="346" width="22" height="22" transform="rotate(45 228 357)" fill="#080908" stroke="#70d99b"/><circle cx="228" cy="357" r="8" fill="#161813" stroke="#e8e2cf"/></g>

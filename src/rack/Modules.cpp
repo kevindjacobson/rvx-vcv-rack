@@ -382,7 +382,11 @@ struct Preview : widget::OpaqueWidget {
         if (status.empty() && frame)
             status = std::to_string(frame->width) + " x " + std::to_string(frame->height)
                 + "  frame " + std::to_string(frame->sequence);
+        nvgSave(args.vg);
+        nvgScissor(args.vg, 4.f, box.size.y - 15.f,
+                   std::max(0.f, box.size.x - 8.f), 13.f);
         nvgText(args.vg, 5.f, box.size.y - 4.f, status.c_str(), NULL);
+        nvgRestore(args.vg);
         widget::OpaqueWidget::draw(args);
     }
 };
@@ -492,6 +496,35 @@ struct IoToggle : theme::ConsoleChoice {
     }
 };
 
+enum class StatusSeverity { Healthy, Waiting, Problem };
+
+inline StatusSeverity classifyStatus(const std::string& status) {
+    std::string folded = status;
+    std::transform(folded.begin(), folded.end(), folded.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    static const char* const problemTerms[] = {
+        "invalid", "error", "overflow", "late", "already in use", "cycle",
+        "exceeds", "failed", "rejected", "incomplete", "unavailable",
+        "missing", "ambiguous", "multiple", "duplicate", "non-finite",
+        "non-monotonic", "underrun", "evicted", "reanchored", "dropped",
+        "unsupported"
+    };
+    if (std::any_of(std::begin(problemTerms), std::end(problemTerms),
+            [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
+        return StatusSeverity::Problem;
+    static const char* const waitingTerms[] = {"starting", "waiting", "preview"};
+    if (std::any_of(std::begin(waitingTerms), std::end(waitingTerms),
+            [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
+        return StatusSeverity::Waiting;
+    static const char* const healthyTerms[] = {
+        "ready", "receiving ", "publishing ", "input idle", "publishing off"
+    };
+    if (std::any_of(std::begin(healthyTerms), std::end(healthyTerms),
+            [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
+        return StatusSeverity::Healthy;
+    return StatusSeverity::Problem;
+}
+
 struct StatusText : widget::Widget {
     std::weak_ptr<Node> node;
     ::rack::engine::Module* module = NULL;
@@ -510,17 +543,9 @@ struct StatusText : widget::Widget {
             status = "Bypassed";
         else if (status.empty())
             status = "Ready";
-        std::string folded = status;
-        std::transform(folded.begin(), folded.end(), folded.begin(),
-            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        const bool problem = folded.find("invalid") != std::string::npos
-            || folded.find("error") != std::string::npos
-            || folded.find("overflow") != std::string::npos
-            || folded.find("late") != std::string::npos
-            || folded.find("already in use") != std::string::npos;
-        const bool waiting = folded.find("starting") != std::string::npos
-            || folded.find("waiting") != std::string::npos
-            || folded.find("preview") != std::string::npos;
+        const StatusSeverity severity = classifyStatus(status);
+        const bool problem = severity == StatusSeverity::Problem;
+        const bool waiting = severity == StatusSeverity::Waiting;
         const NVGcolor stateColor = bypassed ? theme::bypass()
             : problem ? theme::alert() : waiting ? theme::amber() : theme::signal();
         nvgBeginPath(args.vg);

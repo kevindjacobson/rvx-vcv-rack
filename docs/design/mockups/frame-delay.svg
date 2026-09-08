@@ -33,7 +33,7 @@
   <path d="M59 240h32v23H59z" fill="#250c09" stroke="#e05244" stroke-width="2"/>
   <circle cx="75" cy="251.5" r="6" fill="#e05244"/>
   <path d="M9 280h132v20H9z" fill="#0d170f" stroke="#70d99b"/>
-  <text class="minor" x="16" y="293" fill="#70d99b">READY / HISTORY 15 FR</text>
+  <text class="minor" x="16" y="293" fill="#70d99b">READY</text>
   <g>
     <text class="code" x="35" y="316" text-anchor="middle">IMG IN</text><text class="minor" x="112" y="316" text-anchor="middle">CLR CV</text>
     <rect x="24" y="322" width="22" height="22" transform="rotate(45 35 333)" fill="#080908" stroke="#70d99b"/>

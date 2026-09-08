@@ -320,6 +320,12 @@ public:
         widget::OpaqueWidget::draw(args);
     }
 
+    void drawLayer(const DrawArgs& args, int layer) override {
+        // LedDisplayChoice paints its stock 12 px label on layer 1. This choice
+        // owns all of its text rendering so it can clip long Syphon names.
+        widget::OpaqueWidget::drawLayer(args, layer);
+    }
+
 private:
     TextRole role_;
     bool chevron_;
