@@ -2,6 +2,8 @@
 
 **Installation**
 
+**RVX is vibe coded slop.** This is experimental, AI-assisted software. Expect bugs, rough edges, and breaking changes.
+
 RVX is an experimental Mac prototype for Apple Silicon and VCV Rack 2.6.6. Build requirements: Apple Command Line Tools, Python 3.9 or later, and an internet connection for the pinned Rack SDK and Syphon sources.
 
 From this checkout:
@@ -25,9 +27,9 @@ To use an existing SDK, set `RACK_DIR` when invoking make, for example `make -j4
 2. Connect Test Image's image output to Signal Processor's image input, then its image output to Video Monitor. Change gain and offset to process the image.
 3. Add **CV Bridge** to convert ordinary Rack CV/audio into a video field, then connect its field output to Signal Processor's field input.
 4. Add **Frame Delay** inside a feedback connection to give the loop one video tick of delay.
-5. Use **Video I/O** for Syphon. Right-click it to select an application/server, name the publisher, and enable output. Input and output can run together; audio uses a separate Rack Audio/Core Audio route.
+5. Use **Video I/O** for Syphon. Use its panel controls to select an application/server, name the publisher, and enable output. Input and output can run together; audio uses a separate Rack Audio/Core Audio route.
 
-Test Image's **Phase Speed** animates every pattern. Turn it clockwise or counterclockwise for opposite directions; set it to zero to stop. Changing pattern or speed preserves phase; reset the module to return to its initial phase. Open `examples/RVX-Phase-Patterns.vcv` to see all four modes together. To publish a pattern through Syphon, add Video I/O, connect that Test Image’s image output to Video I/O’s image input, then right-click Video I/O to name the publisher and enable output.
+Test Image's **Phase Speed** animates every pattern. Turn it clockwise or counterclockwise for opposite directions; set it to zero to stop. Changing pattern or speed preserves phase; reset the module to return to its initial phase. Open `examples/RVX-Phase-Patterns.vcv` to see all four modes together. To publish a pattern through Syphon, add Video I/O, connect that Test Image’s image output to Video I/O’s image input, then use Video I/O’s panel controls to name the publisher and enable output.
 
 `examples/RVX-Audio-to-Video.vcv` uses the VCV Fundamental VCO (tested with Fundamental 2.6.4) to demonstrate buffered audio-to-raster conversion. Change the VCO frequency to change the image. Other examples use RVX modules only.
 
