@@ -16,6 +16,9 @@ Outstanding planning work includes remaining target Mac/Rack decisions, first-re
 - [RVX LZX feasibility review](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.
 - [Structured grades](research/grades.json): machine-readable assessment data.
 - [Project working instructions](AGENTS.md): planning boundary and documentation practices.
+- [Contribution workflow](CONTRIBUTING.md): one issue, branch and PR per deliverable; review, validation and merge handling.
+
+The GitHub repository is [kevindjacobson/rvx-vcv-rack](https://github.com/kevindjacobson/rvx-vcv-rack). It was created with private visibility. Use the contribution workflow for each focused deliverable. The [planning milestone](https://github.com/kevindjacobson/rvx-vcv-rack/milestone/1) tracks the remaining pre-code specifications and their integration for user review.
 
 README.md is user documentation: installation, quick start and a module table only. Keep project history, design decisions, research procedures and approval state in this document or the implementation plan. Until a runnable release exists, its installation and quick-start sections state availability honestly rather than describe unverified commands or controls.
 
