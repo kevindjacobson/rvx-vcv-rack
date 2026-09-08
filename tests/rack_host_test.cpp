@@ -73,6 +73,8 @@ int main() {
     assert(classifyStatus("Bypassed") == StatusSeverity::Healthy);
     assert(classifyStatus("Syphon ready; publisher waiting for frame")
         == StatusSeverity::Waiting);
+    assert(classifyStatus("Starting video worker") == StatusSeverity::Waiting);
+    assert(classifyStatus("Module preview") == StatusSeverity::Waiting);
     assert(classifyStatus("video graph exceeds node limit")
         == StatusSeverity::Problem);
     assert(classifyStatus("Syphon input source is ambiguous")

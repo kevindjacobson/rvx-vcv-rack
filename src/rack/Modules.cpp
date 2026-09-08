@@ -533,7 +533,8 @@ struct StatusText : widget::Widget {
     void draw(const DrawArgs& args) override {
         std::shared_ptr<Node> n = node.lock();
         std::shared_ptr<const NodeDisplay> display = n ? n->display() : std::shared_ptr<const NodeDisplay>();
-        std::string status = display ? display->status : "Module preview";
+        std::string status = display ? display->status
+            : n ? "Starting video worker" : "Module preview";
         if (n && ServiceRegistry::instance().invalidNativeOutputCount(n->key) > 0)
             status = "Invalid cable: video output is 0 V";
         else if (n && n->kind == Kind::VideoIo
