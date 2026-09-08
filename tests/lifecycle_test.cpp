@@ -171,22 +171,42 @@ int main() {
         }
     }
 
-    // Warm the maximum history, then prove graph retirement releases frames that are owned only
-    // by the renderer's hidden delay state rather than by the current NodeDisplay generation.
+    // Capture a source frame, let every visible display move on, then prove it remains alive only
+    // while the maximum delay's hidden history owns it and expires when that state is retired.
     auto historySource = std::make_shared<Node>(Kind::TestImage);
     auto historyDelay = std::make_shared<Node>(Kind::Delay);
     auto historyMonitor = std::make_shared<Node>(Kind::Monitor);
     historyDelay->params[kDelayFramesParam].store(static_cast<float>(kMaxDelayFrames));
-    const uint64_t historyStart = engine.stats().ticks;
     engine.submit(Graph{{historySource, historyDelay, historyMonitor},
                         {connect(historySource, 0, historyDelay, 0),
                          connect(historyDelay, 0, historyMonitor, 0)}, cycles + 1});
     if (!waitUntil([&] {
-            return engine.stats().ticks >= historyStart + kMaxDelayFrames + 2 &&
-                   historyDelay->display() && historyDelay->display()->outputs[0];
+            const auto display = historySource->display();
+            return display && display->outputs[0];
         }))
-        return fail("maximum delay history did not warm");
-    std::weak_ptr<const Frame> retiredHistoryFrame = historyDelay->display()->outputs[0];
+        return fail("maximum delay source did not render");
+    auto capturedDisplay = historySource->display();
+    auto capturedFrame = capturedDisplay->outputs[0];
+    const uint64_t capturedTick = capturedDisplay->tick;
+    const Frame* capturedAddress = capturedFrame.get();
+    std::weak_ptr<const Frame> retiredHistoryFrame = capturedFrame;
+    capturedFrame.reset();
+    capturedDisplay.reset();
+    if (!waitUntil([&] {
+            const auto sourceDisplay = historySource->display();
+            const auto delayDisplay = historyDelay->display();
+            const auto monitorDisplay = historyMonitor->display();
+            return sourceDisplay && delayDisplay && monitorDisplay &&
+                   sourceDisplay->tick >= capturedTick + 3 &&
+                   delayDisplay->tick >= capturedTick + 3 &&
+                   monitorDisplay->tick >= capturedTick + 3 &&
+                   sourceDisplay->outputs[0].get() != capturedAddress &&
+                   delayDisplay->outputs[0].get() != capturedAddress &&
+                   monitorDisplay->preview.get() != capturedAddress;
+        }))
+        return fail("visible displays did not advance beyond retained history frame");
+    if (retiredHistoryFrame.expired())
+        return fail("maximum delay did not retain a hidden source frame");
     engine.submit(Graph{});
     const uint64_t historyRetirement = engine.stats().ticks;
     historySource.reset();
