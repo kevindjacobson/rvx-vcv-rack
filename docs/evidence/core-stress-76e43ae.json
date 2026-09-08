@@ -1,0 +1,22 @@
+{
+  "core_revision": "76e43ae6f7bbcec1421c7c9a17c058b89c9c055e",
+  "date": "2026-09-07",
+  "target": "Apple M4,16 GiB,macOS26.2",
+  "workload": "TestImage raster probe, two processors, latched-CV bridge, one-tick delay and monitor; no Syphon/native Rack in measured process",
+  "command": "make build/benchmark && ./build/benchmark --seconds 600",
+  "results": {
+    "requested_seconds": 600.0,
+    "elapsed_seconds": 600.003,
+    "ticks": 17982,
+    "format": "720x480@30000/1001",
+    "render_ms_p50": 2.51,
+    "render_ms_p95": 3.134,
+    "render_ms_p99": 7.173,
+    "render_ms_max": 59.303,
+    "deadline_ms": 33.367,
+    "missed_deadlines": 3,
+    "render_errors": 0,
+    "reported_frame_bytes": 27648000,
+    "peak_rss_bytes": 83296256
+  }
+}
