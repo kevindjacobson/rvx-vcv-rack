@@ -50,4 +50,3 @@ The two reference mockups resolve the system before source rollout:
 - [`video-io.svg`](mockups/video-io.svg) shows the dense panel, safe text cells, paired toggles, status area, and directional Syphon port grouping.
 
 Module-browser construction with a null module is required: widgets show default or waiting text without dereferencing engine state. Rack context menus and parameter tooltips remain native so they retain familiar interaction and accessibility behavior.
-
