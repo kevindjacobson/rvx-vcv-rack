@@ -10,7 +10,7 @@ CPP_SOURCES := $(wildcard src/*.cpp src/core/*.cpp src/rack/*.cpp)
 MM_SOURCES := $(wildcard src/io/*.mm)
 OBJECTS := $(patsubst %.cpp,build/%.o,$(CPP_SOURCES)) $(patsubst %.mm,build/%.o,$(MM_SOURCES))
 
-.PHONY: all deps check-sdk test test-lifecycle test-syphon benchmark dist install clean
+.PHONY: all deps check-sdk test test-lifecycle test-rack test-syphon benchmark dist install clean
 all: plugin.dylib
 
 deps:
@@ -46,6 +46,18 @@ build/lifecycle-test: src/core/Video.cpp src/core/Video.hpp src/io/VideoBackend.
 
 test-lifecycle: build/lifecycle-test
 	./build/lifecycle-test
+
+build/rack-adapter-test: src/rack/PublisherNames.hpp tests/rack_adapter_test.cpp
+	@mkdir -p build
+	$(CXX) -std=c++17 -O2 -g -Wall -Wextra tests/rack_adapter_test.cpp -o $@
+
+build/rack-host-test: src/core/Video.cpp src/core/Video.hpp src/rack/RackAdapter.cpp src/rack/RackAdapter.hpp src/rack/Modules.cpp src/rack/PublisherNames.hpp tests/rack_host_test.cpp | check-sdk
+	@mkdir -p build
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -pthread src/core/Video.cpp src/rack/RackAdapter.cpp tests/rack_host_test.cpp -L"$(RACK_DIR)" -lRack -o $@
+
+test-rack: build/rack-adapter-test build/rack-host-test
+	./build/rack-adapter-test
+	DYLD_LIBRARY_PATH="$(RACK_DIR)" ./build/rack-host-test
 
 build/benchmark: src/core/Video.cpp src/core/Video.hpp tests/benchmark.cpp
 	@mkdir -p build
