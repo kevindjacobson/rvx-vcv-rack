@@ -509,24 +509,30 @@ inline StatusSeverity classifyStatus(const std::string& status) {
         "non-monotonic", "underrun", "evicted", "reanchored", "dropped",
         "unsupported", "could not"
     };
-    if (std::any_of(std::begin(problemTerms), std::end(problemTerms),
-            [&folded](const char* term) { return folded.find(term) != std::string::npos; }))
-        return StatusSeverity::Problem;
     static const char* const waitingTerms[] = {"starting", "waiting", "preview"};
-    static const char* const healthyTerms[] = {
-        "ready", "receiving ", "publishing ", "input idle", "publishing off",
-        "bypassed"
-    };
     bool sawRecognized = false;
     bool sawWaiting = false;
     for (size_t begin = 0; begin <= folded.size();) {
         const size_t end = folded.find(';', begin);
-        const std::string segment = folded.substr(begin,
+        std::string segment = folded.substr(begin,
             end == std::string::npos ? std::string::npos : end - begin);
+        const size_t first = segment.find_first_not_of(" \t");
+        const size_t last = segment.find_last_not_of(" \t");
+        segment = first == std::string::npos
+            ? std::string() : segment.substr(first, last - first + 1);
+        const bool prefixedHealthy = segment.rfind("receiving ", 0) == 0
+            || segment.rfind("publishing ", 0) == 0;
+        const bool ready = segment == "ready"
+            || (segment.size() > 6
+                && segment.compare(segment.size() - 6, 6, " ready") == 0);
+        const bool healthy = prefixedHealthy || ready || segment == "input idle"
+            || segment == "bypassed";
         const bool waiting = std::any_of(std::begin(waitingTerms), std::end(waitingTerms),
             [&segment](const char* term) { return segment.find(term) != std::string::npos; });
-        const bool healthy = std::any_of(std::begin(healthyTerms), std::end(healthyTerms),
+        const bool problem = std::any_of(std::begin(problemTerms), std::end(problemTerms),
             [&segment](const char* term) { return segment.find(term) != std::string::npos; });
+        if (problem && !healthy)
+            return StatusSeverity::Problem;
         if (!waiting && !healthy)
             return StatusSeverity::Problem;
         sawRecognized = true;

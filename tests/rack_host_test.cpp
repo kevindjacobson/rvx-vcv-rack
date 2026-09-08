@@ -70,6 +70,8 @@ int main() {
     assert(classifyStatus("Ready") == StatusSeverity::Healthy);
     assert(classifyStatus("receiving Camera / Main; publishing RVX")
         == StatusSeverity::Healthy);
+    assert(classifyStatus("receiving Chocolate / Late Show; publishing Error Studies")
+        == StatusSeverity::Healthy);
     assert(classifyStatus("Bypassed") == StatusSeverity::Healthy);
     assert(classifyStatus("Syphon ready; publisher waiting for frame")
         == StatusSeverity::Waiting);
