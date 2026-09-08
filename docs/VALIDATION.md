@@ -20,4 +20,36 @@ Audio coexistence requires separate baseline and video-stress evidence at the sa
 
 ## Results
 
-Pending implementation integration. No runtime acceptance gate is marked passed by this document's existence.
+The prototype builds and runs in an isolated Rack 2.6.6 test profile. It is still a draft while review repairs and the remaining host gates are checked. Completed evidence is limited to the scope and revisions below.
+
+| Evidence | Revision / scope | Result |
+|---|---|---|
+| Core numeric, temporal and bypass suite | `6fcdb8c`; independent ASan/UBSan run | Existing tests passed. Independent boundary probes subsequently found four additional defects; see [review record](REVIEWS.md). A passing suite did not establish complete correctness. |
+| Worker lifecycle | `177ecef` test with core `6fcdb8c`, repeated at `1f582d6` | 50 graph create/delete cycles and repeated worker restarts; all 51 mock backends destroyed on their owner thread; retired node/frame weak references expired. Optimized run 0.772 s, current RSS 1,327,104 → 9,764,864 bytes. RSS includes allocator caching; this proves owned-resource retirement, not native Rack widget lifecycle. |
+| Rack SDK-linked adapter tests | `422cfde`, run through `make test-rack` | Default name reload/new/duplicate/release, explicit collision detection and CV-only epoch/reset callbacks passed. The harness uses Rack classes but has no native window. |
+| Syphon SDK loopback and independent probes | `c75aa8f`, pinned SDK revision in [SYPHON.md](SYPHON.md) | Simultaneous receive/relay/publication, resize, source selection, disconnection/hold, restart UUID, ambiguity, canvas conversion, orientation and straight alpha passed. An 8192² external texture converts to a 720×480 CPU frame containing 1,382,400 floats without a CPU allocation above 128 MiB. |
+| Native Rack smoke and window minimization | Installed core `0e907b8`, Rack `23646e7`, Syphon `fc32b26` | Native chain/fan-out loaded and previewed; controls changed and patch Save As / replacement worked. Across minimize/restore, video tick advanced from 34047 to 35223 with the six-node/six-edge graph and no adapter errors. This predates final repairs. |
+| Native audio example | Same intermediate installed build; Fundamental VCO 2.6.4, Rack engine 48 kHz, no physical audio device | Exposed a persistent flat-field failure caused by fixed audio/video clock mapping. Repair and re-verification required; this is not a passed audio gate. |
+
+Intermediate ten-minute **CPU renderer** runs, at 720×480 and 30000/1001 ticks/s:
+
+| Core revision | Render p50 / p95 / p99 / maximum (ms) | Deadline misses / ticks | Reported current frame storage | Peak process RSS |
+|---|---|---|---|---|
+| `0e907b8` | 3.728 / 8.678 / 9.319 / 71.477 | 4 / 17,982 (0.022%) | 27,648,000 bytes | 83,230,720 bytes |
+| `6fcdb8c` | 2.520 / 3.113 / 3.724 / 81.427 | 5 / 17,982 (0.028%) | 27,648,000 bytes | 79,118,336 bytes |
+
+Both completed in 600.004 seconds with zero renderer errors and met the provisional p99/miss/storage budgets for that workload. Neither is final-revision acceptance. The benchmark includes Test Image, two processors, a CV Bridge, Frame Delay and Monitor; it excludes the real Syphon backend, native Rack rendering, and physical audio. A separate Rack test process and review/build activity were running on the same Mac, so the measurements are not isolated machine capacity limits. Reported frame storage is the renderer's current unique frame/history accounting, not total process memory or every externally retained frame generation.
+
+Reproduction commands from the checkout:
+
+```sh
+make test
+make test-lifecycle
+make test-rack RACK_DIR=/path/to/Rack-SDK
+make test-syphon RACK_DIR=/path/to/Rack-SDK
+make benchmark
+```
+
+For native Rack testing, build/package, install into a separate user directory with `python3 scripts/install-prototype.py --user-dir /path/to/test-profile`, then launch Rack with `--user /path/to/test-profile` and an included patch. Set `RVX_DIAGNOSTICS=1` for one status line per second. This test profile must have its own valid Rack license if using Rack Pro; no license or test host executable is distributed with RVX.
+
+Unverified gates remain explicit: final integrated build/review; the full native cable-edit/undo/duplicate/delete lifecycle matrix and 50 native module cycles; monitor removal/window recreation; physical Core Audio baseline versus video-stress underruns, input-device removal/reconnection and measured end-to-end audiovisual latency. Independent-process Syphon SDK tests and mock lifecycle tests do not substitute for those scenarios. DAW, Intel, full GPU processing, Memory Palace, NTSC/composite timing and hardware fidelity are outside this prototype's implemented claims.
