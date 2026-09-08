@@ -16,4 +16,8 @@ Every RVX module can initiate one scan per Rack UI frame, while the context serv
 
 Services are indexed by the current Rack `Engine*` only at the UI/lifecycle boundary; each context receives its own RVX engine. Node keys are process-unique and never reused. Submitted graphs retain `shared_ptr<Node>` state, so an in-flight render remains memory-safe after a Rack module is deleted. `onRemove()` unregisters without joining. When the last node leaves a context, a registry-owned cleanup thread stops and destroys that context service outside Rack's engine lock. The registry owns no video resources itself and removes the context entry immediately.
 
+The lifecycle registry also reserves automatic Video I/O publisher names across live RVX modules. A recalled automatic name is reserved during `onAdd()` before a newly created module selects the first free `RVX` suffix; duplication receives a new suffix, and deletion or user rename releases the former automatic name. Explicit publisher names remain unchanged, including duplicates, and a duplicate is reported on the Video I/O panel.
+
+Rack audio frame or sample-rate discontinuities start a new capture epoch only for CV Bridge. They do not reset Test Image phase, received source video, or Frame Delay history. Module reset and patch-state load remain explicit video resets, and Frame Delay's Clear control resets its history.
+
 Set `RVX_DIAGNOSTICS=1` before launching Rack to emit at most one status line per second plus changed topology revisions. The lines contain video tick and lateness counts, last/maximum render time, frame bytes, graph node/edge counts, adapter errors, and latest monitor/source sequence. The opt-in log contains no Syphon identities, publisher names, paths or credentials.

@@ -2,6 +2,7 @@
 #include "../plugin.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 
 using namespace rack;
@@ -223,7 +224,7 @@ struct VideoIoModule : Module {
         // Reload of the same module ID preserves the saved name exactly.
         if (restoredDefaultPublisher && publisherOwnerModuleId >= 0
             && publisherOwnerModuleId != id) {
-            defaultPublisherName = "RVX " + std::to_string(node_->key);
+            defaultPublisherName = "RVX";
             io.publisherName = defaultPublisherName;
             node_->setIoSettings(io);
         }
@@ -231,7 +232,11 @@ struct VideoIoModule : Module {
             defaultPublisherName = io.publisherName;
         }
         publisherOwnerModuleId = id;
-        Module::onAdd(e);
+        const bool automatic = io.publisherName == defaultPublisherName;
+        std::string requestedDefault = io.publisherName;
+        attachNode(e, automatic ? &requestedDefault : NULL);
+        if (automatic)
+            defaultPublisherName = requestedDefault;
     }
 
     void appendData(json_t* rootJ) const override {
@@ -266,7 +271,7 @@ struct VideoIoModule : Module {
         value = json_object_get(rootJ, "holdLast");
         if (value) io.holdLast = json_boolean_value(value);
         if (io.publisherName.empty())
-            io.publisherName = "RVX " + std::to_string(node_->key);
+            io.publisherName = "RVX";
         restoredDefaultPublisher = io.publisherName == defaultPublisherName;
         node_->setIoSettings(io);
     }
@@ -481,13 +486,27 @@ struct StatusText : widget::Widget {
         std::shared_ptr<Node> n = node.lock();
         std::shared_ptr<const NodeDisplay> display = n ? n->display() : std::shared_ptr<const NodeDisplay>();
         std::string status = display ? display->status : "Starting video worker";
+        if (n && n->kind == Kind::VideoIo
+            && ServiceRegistry::instance().publisherNameConflict(n->key))
+            status = "Publisher name already in use";
         if (status.empty()) status = "Ready";
+        std::string folded = status;
+        std::transform(folded.begin(), folded.end(), folded.begin(),
+            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        const bool problem = folded.find("invalid") != std::string::npos
+            || folded.find("error") != std::string::npos
+            || folded.find("overflow") != std::string::npos
+            || folded.find("late") != std::string::npos;
+        nvgBeginPath(args.vg);
+        nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 3.f);
+        nvgFillColor(args.vg, problem ? nvgRGBA(90, 19, 61, 210) : nvgRGBA(8, 11, 18, 170));
+        nvgFill(args.vg);
         if (APP && APP->window && APP->window->uiFont)
             nvgFontFaceId(args.vg, APP->window->uiFont->handle);
         nvgFontSize(args.vg, 8.f);
         nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-        nvgFillColor(args.vg, kMuted);
-        nvgTextBox(args.vg, 0, 0, box.size.x, status.c_str(), NULL);
+        nvgFillColor(args.vg, problem ? kInk : kMuted);
+        nvgTextBox(args.vg, 4.f, 3.f, box.size.x - 8.f, status.c_str(), NULL);
         widget::Widget::draw(args);
     }
 };
@@ -526,6 +545,11 @@ struct SignalProcessorWidget : ModuleWidget {
         addParam(createParamCentered<RoundBlackKnob>(pos(31.f, 31.f), module, SignalProcessorModule::GAIN_B_PARAM));
         addParam(createParamCentered<RoundBlackKnob>(pos(51.f, 31.f), module, SignalProcessorModule::OFFSET_PARAM));
         addParam(createParamCentered<RoundBlackSnapKnob>(pos(71.f, 31.f), module, SignalProcessorModule::MODE_PARAM));
+        StatusText* status = new StatusText;
+        status->box.pos = pos(6.f, 49.f);
+        status->box.size = pos(69.f, 18.f);
+        if (module) status->node = module->node();
+        addChild(status);
         addVideoInput(pos(11.f, 94.f), SignalProcessorModule::A_INPUT, PortType::Image);
         addVideoInput(pos(31.f, 94.f), SignalProcessorModule::B_INPUT, PortType::Image);
         addVideoInput(pos(51.f, 94.f), SignalProcessorModule::FIELD_INPUT, PortType::Field);
@@ -549,6 +573,11 @@ struct CvBridgeWidget : ModuleWidget {
         addParam(createParamCentered<RoundBlackSnapKnob>(pos(11.f, 31.f), module, CvBridgeModule::MODE_PARAM));
         addParam(createParamCentered<RoundBlackKnob>(pos(31.f, 31.f), module, CvBridgeModule::SCALE_PARAM));
         addParam(createParamCentered<RoundBlackKnob>(pos(51.f, 31.f), module, CvBridgeModule::OFFSET_PARAM));
+        StatusText* status = new StatusText;
+        status->box.pos = pos(6.f, 49.f);
+        status->box.size = pos(49.f, 18.f);
+        if (module) status->node = module->node();
+        addChild(status);
         addInput(createInputCentered<PJ301MPort>(pos(10.f, 90.f), module, CvBridgeModule::CV_INPUT));
         addInput(createInputCentered<PJ301MPort>(pos(30.f, 90.f), module, CvBridgeModule::AUDIO_INPUT));
         addInput(createInputCentered<PJ301MPort>(pos(50.f, 90.f), module, CvBridgeModule::TRIGGER_INPUT));
@@ -566,6 +595,11 @@ struct FrameDelayWidget : ModuleWidget {
         setPanel(panel);
         addScrews(this, box.size.x);
         addParam(createParamCentered<LEDButton>(pos(25.f, 40.f), module, FrameDelayModule::CLEAR_PARAM));
+        StatusText* status = new StatusText;
+        status->box.pos = pos(5.f, 53.f);
+        status->box.size = pos(40.f, 16.f);
+        if (module) status->node = module->node();
+        addChild(status);
         addVideoInput(pos(14.f, 89.f), FrameDelayModule::IMAGE_INPUT, PortType::Image);
         addInput(createInputCentered<PJ301MPort>(pos(37.f, 89.f), module, FrameDelayModule::CLEAR_INPUT));
         addVideoOutput(pos(25.f, 119.f), FrameDelayModule::IMAGE_OUTPUT, PortType::Image);

@@ -2,6 +2,7 @@
 
 #include "../plugin.hpp"
 #include "../core/Video.hpp"
+#include "PublisherNames.hpp"
 
 #include <condition_variable>
 #include <map>
@@ -18,8 +19,11 @@ class ServiceRegistry {
 public:
     static ServiceRegistry& instance();
     std::shared_ptr<PatchService> attach(rack::engine::Engine* context,
-                                         const std::shared_ptr<Node>& node);
+                                         const std::shared_ptr<Node>& node,
+                                         std::string* automaticPublisherName = NULL);
     void detach(rack::engine::Engine* context, uint64_t nodeKey);
+    void observePublisherName(uint64_t nodeKey, const std::string& name);
+    bool publisherNameConflict(uint64_t nodeKey);
     ~ServiceRegistry();
 
 private:
@@ -30,6 +34,7 @@ private:
 
     std::mutex mutex_;
     std::map<rack::engine::Engine*, std::shared_ptr<PatchService> > services_;
+    PublisherNameReservations publisherNames_;
     std::vector<std::shared_ptr<PatchService> > retired_;
     std::condition_variable condition_;
     bool closing_ = false;
@@ -85,6 +90,7 @@ public:
     void dataFromJson(json_t* rootJ) override;
 
 protected:
+    void attachNode(const AddEvent& e, std::string* automaticPublisherName = NULL);
     virtual void capture(const ProcessArgs& args);
     virtual void appendData(json_t* rootJ) const;
     virtual void readData(json_t* rootJ, int schema);
@@ -95,6 +101,7 @@ protected:
     std::shared_ptr<Node> node_;
     std::shared_ptr<PatchService> service_;
     rack::engine::Engine* context_ = NULL;
+    bool registered_ = false;
     double audioSeconds_ = 0.0;
     uint64_t audioEpoch_ = 0;
     int64_t lastRackFrame_ = -1;

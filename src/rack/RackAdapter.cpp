@@ -48,25 +48,43 @@ ServiceRegistry::~ServiceRegistry() {
 }
 
 std::shared_ptr<PatchService> ServiceRegistry::attach(
-    ::rack::engine::Engine* context, const std::shared_ptr<Node>& node) {
-    if (!context || !node)
+    ::rack::engine::Engine* context, const std::shared_ptr<Node>& node,
+    std::string* automaticPublisherName) {
+    if (!node)
         return std::shared_ptr<PatchService>();
 
     std::lock_guard<std::mutex> lock(mutex_);
+    if (node->kind == Kind::VideoIo) {
+        IoSettings io = node->ioSettings();
+        const bool automatic = automaticPublisherName != NULL;
+        const std::string preferred = automatic ? *automaticPublisherName : io.publisherName;
+        const std::string selected = publisherNames_.reserve(node->key, preferred, automatic);
+        if (automatic) {
+            io.publisherName = selected;
+            node->setIoSettings(io);
+            *automaticPublisherName = selected;
+        }
+    }
+    if (!context)
+        return std::shared_ptr<PatchService>();
+
     std::shared_ptr<PatchService>& service = services_[context];
+    bool created = false;
     if (!service) {
         service = std::shared_ptr<PatchService>(new PatchService);
-        service->start();
+        created = true;
     }
     service->addNode(node);
+    if (created)
+        service->start();
     return service;
 }
 
 void ServiceRegistry::detach(::rack::engine::Engine* context, uint64_t nodeKey) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    publisherNames_.release(nodeKey);
     if (!context)
         return;
-
-    std::lock_guard<std::mutex> lock(mutex_);
     std::map<::rack::engine::Engine*, std::shared_ptr<PatchService> >::iterator it = services_.find(context);
     if (it == services_.end())
         return;
@@ -76,6 +94,16 @@ void ServiceRegistry::detach(::rack::engine::Engine* context, uint64_t nodeKey) 
         retired_.push_back(service);
         condition_.notify_one();
     }
+}
+
+void ServiceRegistry::observePublisherName(uint64_t nodeKey, const std::string& name) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    publisherNames_.observe(nodeKey, name);
+}
+
+bool ServiceRegistry::publisherNameConflict(uint64_t nodeKey) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return publisherNames_.hasCollision(nodeKey);
 }
 
 void ServiceRegistry::reap() {
@@ -163,13 +191,18 @@ void PatchService::syncRackUi() {
     lastUiFrameTime_ = frameTime;
 
     Graph graph;
+    std::vector<std::pair<uint64_t, std::string> > publisherNames;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         for (std::map<uint64_t, std::shared_ptr<Node> >::const_iterator it = nodes_.begin();
              it != nodes_.end(); ++it) {
+            if (it->second->kind == Kind::VideoIo)
+                publisherNames.push_back(std::make_pair(it->first, it->second->ioSettings().publisherName));
             graph.nodes.push_back(it->second);
         }
     }
+    for (size_t i = 0; i < publisherNames.size(); ++i)
+        ServiceRegistry::instance().observePublisherName(publisherNames[i].first, publisherNames[i].second);
 
     const std::vector<::rack::app::CableWidget*> cables = APP->scene->rack->getCompleteCables();
     graph.connections.reserve(cables.size());
@@ -261,20 +294,21 @@ EngineStats PatchService::stats() const {
 Module::Module(Kind kind)
     : kind_(kind), node_(new Node(kind)) {
     IoSettings io;
-    io.publisherName = "RVX " + std::to_string(node_->key);
+    io.publisherName = "RVX";
     node_->setIoSettings(io);
 }
 
 Module::~Module() {
-    if (context_) {
+    if (registered_) {
         ServiceRegistry::instance().detach(context_, node_->key);
         service_.reset();
         context_ = NULL;
+        registered_ = false;
     }
 }
 
 void Module::process(const ProcessArgs& args) {
-    if (lastRackFrame_ >= 0 && args.frame != lastRackFrame_ + 1) {
+    if (kind_ == Kind::CvBridge && lastRackFrame_ >= 0 && args.frame != lastRackFrame_ + 1) {
         ++audioEpoch_;
         incrementTrigger(node_->resets);
     }
@@ -314,19 +348,25 @@ void Module::incrementTrigger(std::atomic<uint64_t>& counter) noexcept {
 }
 
 void Module::onAdd(const AddEvent& e) {
+    attachNode(e, NULL);
+}
+
+void Module::attachNode(const AddEvent& e, std::string* automaticPublisherName) {
     ::rack::engine::Module::onAdd(e);
     for (size_t i = 0; i < params.size() && i < node_->params.size(); ++i)
         node_->params[i].store(params[i].getValue(), std::memory_order_relaxed);
     node_->bypass.store(isBypassed(), std::memory_order_release);
     context_ = APP ? APP->engine : NULL;
-    service_ = ServiceRegistry::instance().attach(context_, node_);
+    service_ = ServiceRegistry::instance().attach(context_, node_, automaticPublisherName);
+    registered_ = true;
 }
 
 void Module::onRemove(const RemoveEvent& e) {
-    if (context_) {
+    if (registered_) {
         ServiceRegistry::instance().detach(context_, node_->key);
         service_.reset();
         context_ = NULL;
+        registered_ = false;
     }
     ::rack::engine::Module::onRemove(e);
 }
@@ -344,9 +384,11 @@ void Module::onSampleRateChange(const SampleRateChangeEvent& e) {
     // Keep the accumulated timestamp monotonic while marking a new sampling
     // epoch. The renderer discards buffered samples from earlier epochs and
     // establishes a fresh audio-to-video time mapping from the first new one.
-    ++audioEpoch_;
+    if (kind_ == Kind::CvBridge) {
+        ++audioEpoch_;
+        incrementTrigger(node_->resets);
+    }
     lastRackFrame_ = -1;
-    incrementTrigger(node_->resets);
 }
 
 void Module::onBypass(const BypassEvent& e) {
@@ -362,7 +404,8 @@ void Module::onUnBypass(const UnBypassEvent& e) {
 void Module::onReset(const ResetEvent& e) {
     ::rack::engine::Module::onReset(e);
     incrementTrigger(node_->resets);
-    ++audioEpoch_;
+    if (kind_ == Kind::CvBridge)
+        ++audioEpoch_;
     lastRackFrame_ = -1;
 }
 
@@ -379,7 +422,8 @@ void Module::dataFromJson(json_t* rootJ) {
     if (schemaJ && json_is_integer(schemaJ))
         schema = static_cast<int>(json_integer_value(schemaJ));
     readData(rootJ, schema);
-    ++audioEpoch_;
+    if (kind_ == Kind::CvBridge)
+        ++audioEpoch_;
     lastRackFrame_ = -1;
     incrementTrigger(node_->resets);
 }
