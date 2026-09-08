@@ -61,7 +61,7 @@ The JSON records the transient CoreAudio device ID, device name, current nominal
 
 The CoreAudio buffer size is a live HAL device property. Confirm Rack's separately saved/requested block size from the generated patch and its startup log rather than treating the HAL value as proof of Rack state.
 
-## External Syphon path
+## External Syphon observation
 
 Choose a run-specific suffix and use distinct source and output names. Start the probe first:
 
@@ -70,10 +70,11 @@ Choose a run-specific suffix and use distinct source and output names. Start the
   --duration 600 \
   --progress 30 \
   --source-name "RVX validation source RUN-SUFFIX" \
+  --output-application "EXACT OUTPUT APPLICATION" \
   --output-name "RVX validation output RUN-SUFFIX"
 ```
 
-The first flushed JSON line has `event: "ready"`. Copy `publishedSource.application` and `publishedSource.name` exactly; the application name comes from the built executable and can change if the binary is renamed. Do not hard-code an example application name.
+The first flushed JSON line has `event: "ready"`. Copy `publishedSource.application` and `publishedSource.name` exactly; the application name comes from the built executable and can change if the binary is renamed. The awaited output is also selected by its exact application and server name. Names alone are not Syphon identities and two applications can publish the same server name.
 
 After the integration commit containing [`scripts/make-validation-patch.py`](../scripts/make-validation-patch.py) is present, generate fresh baseline and stress patches. The script refuses to overwrite an existing output:
 
@@ -94,10 +95,58 @@ python3 scripts/make-validation-patch.py stress /tmp/rvx-native-stress.vcv \
 
 Load the generated stress patch into the isolated Rack validation profile. Its Video I/O receives the exact emitted application/source pair, routes that image through the patch's operators, and publishes the exact output name awaited by the probe. The input is a deterministic moving 720 × 480 RGBA pattern scheduled at 30000/1001 frames per second. The pattern contains color bars, moving horizontal and vertical marks, and frame-index bits.
 
+This mode is a measured observation of the combined stress workload. Its summary deliberately contains `"transportAssertion": null` instead of a `passed` flag, and a completed observation exits with status zero even when the selected output was absent. The stress patch contains internal Test Image and VCO paths that can animate the publication without proving that the external Syphon input contributed to it. Use the relay verification below for that claim.
+
 The probe emits periodic JSON progress records and one summary. `completedFramePtrs` counts new completed RVX receiver frame identities rather than caller ticks. `pixelHashChanges` hashes every float in each new working frame. The summary also reports publisher cadence slots missed, exact-output absence or ambiguity, output identity changes, observed working formats, output interarrival gaps and measured FPS relative to 30000/1001.
+
+## Source-bound relay verification
+
+Use a new run suffix, the exact application name of the Rack validation host, and a short measured interval first:
+
+```sh
+./build/native-syphon-path-probe \
+  --verify-relay \
+  --duration 2 \
+  --startup-timeout 120 \
+  --progress 1 \
+  --source-name "RVX relay source RUN-SUFFIX" \
+  --output-application "EXACT RACK APPLICATION" \
+  --output-name "RVX relay output RUN-SUFFIX"
+```
+
+After the `ready` record appears, generate a relay fixture from its exact `publishedSource` values:
+
+```sh
+python3 scripts/make-validation-patch.py relay /tmp/rvx-native-relay-RUN-SUFFIX.vcv \
+  --syphon-application "READY publishedSource.application" \
+  --syphon-source "READY publishedSource.name" \
+  --publisher "RVX relay output RUN-SUFFIX"
+```
+
+Load that patch in the isolated Rack validation profile before the startup timeout expires. It contains exactly one Video I/O source routed through a unity Signal Processor to a Monitor and back to the same Video I/O publisher. It has no Test Image, CV Bridge, VCO, feedback or other internal image generator.
+
+Every probe run creates a fresh 64-bit nonce and publishes it with a 32-bit source frame index in protected blocks of the known pattern. Relay verification does not begin its requested `--duration` until an output with the exact application/name, expected format, current nonce and correct pattern body arrives. The startup wait is bounded separately by `--startup-timeout`; this lets the operator load the fixture without shortening the measurement.
+
+During the measured window the output must remain continuously discoverable under the same Syphon identity, remain 720 × 480 RGBA, decode the current nonce and known body on every new frame, and advance its source index without repeats or regression. The active receive cadence must be at least 99% of 30000/1001, skipped source indices must remain below 1%, and the final valid frame must be no more than three nominal periods old. A server that emits three early frames and then stops therefore fails. These relay thresholds establish source-bound continuity for this fixture; they do not replace the separate 600-second renderer p99, missed-deadline, audio or storage budgets in `VALIDATION.md`.
+
+The following short negative cases are opt-in because they depend on operator-controlled native fixtures:
+
+- Generate the relay patch with a different `--syphon-source`; startup must time out without beginning measurement.
+- Run the probe with a different `--output-application`; the same-named server from another application must not be selected.
+- After `measurementStarted`, stop or disable the Rack publisher after three valid frames; the full measured window must fail freshness, availability, or cadence.
+
+The local regression checks exercise exact application/name matching, nonce and body decoding, early-frames-then-outage rejection, minimal relay topology, exclusive patch creation, and dangling-symlink refusal:
+
+```sh
+make test-native-syphon-path \
+  SYPHON_DIR=/path/to/Syphon \
+  SYPHON_LIB=/path/to/Syphon/libSyphon.a
+```
+
+Patch generation constructs the complete JSON payload before opening the destination with exclusive creation. It refuses existing files, concurrent winners and dangling symlinks rather than following or replacing them.
 
 `SIGINT` or `SIGTERM` retires the temporary publisher and emits an interrupted summary before the process exits with status 130.
 
-These are observations rather than a transport guarantee. Syphon does not carry FPS metadata, so received FPS and interarrival overruns use the probe's steady clock. The RVX backend converts input to the requested 720 × 480 working frame before exposing it; `receivedFormats` therefore cannot prove the source's native Syphon texture dimensions. A changing hash proves changing completed pixels, not correct operator math or visual fidelity. Whole-window frame shortfall includes time spent waiting for Rack to publish the expected output. Process scheduling, GPU readback and the probe's full-frame hashing also contribute to measured gaps.
+Syphon does not carry FPS metadata, so received FPS and interarrival overruns use the probe's steady clock. The RVX backend converts input to the requested 720 × 480 working frame before exposing it; `receivedFormats` therefore cannot prove the source's native Syphon texture dimensions. The relay's known-content comparison proves this exact source traversed a unity processor and the tested I/O boundary; it does not prove arbitrary operator math, native source dimensions, end-to-end latency or visual fidelity. Process scheduling, GPU readback and full-frame hashing contribute to measured gaps.
 
 Use the CoreAudio listener in a separate process over the same baseline and stress intervals. Keep the Rack process, hardware device, sample rate, block size and measurement duration fixed between runs. Record Rack's opt-in diagnostics alongside the two probe summaries. A combined result can establish the observed behavior of that exact host run; it does not establish DAW, Intel Mac, other hardware, end-to-end latency, or LZX hardware fidelity.

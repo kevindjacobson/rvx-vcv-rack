@@ -109,10 +109,15 @@ test-native-coreaudio: build/native-coreaudio-probe build/native-coreaudio-selec
 	@! ./build/native-coreaudio-probe --observe-default-output --duration 3600.1 >/dev/null 2>&1
 
 test-native-syphon-path: build/native-syphon-path-probe
+	./build/native-syphon-path-probe --self-test >/dev/null
+	python3 scripts/make-validation-patch.py --self-test >/dev/null
 	./build/native-syphon-path-probe --loopback --duration 2 --progress 0 >/dev/null
 	@! ./build/native-syphon-path-probe --loopback --duration 0 >/dev/null 2>&1
 	@! ./build/native-syphon-path-probe --loopback --duration 3600.1 >/dev/null 2>&1
 	@! ./build/native-syphon-path-probe --duration 2 >/dev/null 2>&1
+	@! ./build/native-syphon-path-probe --duration 2 --output-name exact-without-app >/dev/null 2>&1
+	@! ./build/native-syphon-path-probe --duration 2 --startup-timeout 1 \
+		--output-application App --output-name Output >/dev/null 2>&1
 
 test-native-validation: test-native-coreaudio test-native-syphon-path
 
