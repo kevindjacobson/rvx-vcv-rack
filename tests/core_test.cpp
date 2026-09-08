@@ -662,6 +662,17 @@ void waitForCalls(const std::shared_ptr<ThreadBackendState>& state, int expected
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
 }
 
+bool waitForWorkerReady(Engine& engine, uint64_t previousRun = 0) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (std::chrono::steady_clock::now() < deadline) {
+        const EngineStats stats = engine.stats();
+        if (stats.workerRun != 0 && stats.workerRun != previousRun && stats.ticks > 0)
+            return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    return false;
+}
+
 void testBackendWorkerLifetime() {
     auto state = std::make_shared<ThreadBackendState>();
     auto io = std::make_shared<Node>(Kind::VideoIo);
@@ -694,7 +705,7 @@ void testEngineIndependentClock() {
     engine.stop();
     const EngineStats stats = engine.stats();
     CHECK(stats.ticks >= 7);
-    CHECK(stats.workerRun == 1);
+    CHECK(stats.workerRun != 0);
     CHECK(stats.renderMilliseconds.count == stats.ticks);
     CHECK(stats.renderErrors == 0 && stats.renderErrorFrames == 0);
     CHECK(source->display() && source->display()->tick + 1 == stats.ticks);
@@ -706,14 +717,34 @@ void testEngineIndependentClock() {
     CHECK(engine.format().rateNumerator == 50);
 
     engine.start();
-    const auto restartDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-    while (engine.stats().workerRun == stats.workerRun &&
-           std::chrono::steady_clock::now() < restartDeadline)
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    CHECK(waitForWorkerReady(engine, stats.workerRun));
     engine.stop();
     const EngineStats restarted = engine.stats();
-    CHECK(restarted.workerRun == stats.workerRun + 1);
+    CHECK(restarted.workerRun != stats.workerRun);
     CHECK(restarted.ticks > 0 && restarted.renderMilliseconds.count == restarted.ticks);
+}
+
+void testWorkerRunIdentifiers() {
+    Engine first(Format{1, 1, 100, 1});
+    Engine second(Format{1, 1, 100, 1});
+    first.start();
+    second.start();
+    CHECK(waitForWorkerReady(first));
+    CHECK(waitForWorkerReady(second));
+    first.stop();
+    second.stop();
+    const EngineStats firstRun = first.stats();
+    const EngineStats secondRun = second.stats();
+    CHECK(firstRun.workerRun != 0 && secondRun.workerRun != 0);
+    CHECK(firstRun.workerRun != secondRun.workerRun);
+
+    first.start();
+    CHECK(waitForWorkerReady(first, firstRun.workerRun));
+    first.stop();
+    const EngineStats restarted = first.stats();
+    CHECK(restarted.workerRun != firstRun.workerRun);
+    CHECK(restarted.workerRun != secondRun.workerRun);
+    CHECK(restarted.ticks > 0);
 }
 
 void testEngineReportAggregation() {
@@ -744,7 +775,7 @@ void testEngineReportAggregation() {
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
     engine.stop();
     const EngineStats restarted = engine.stats();
-    CHECK(restarted.workerRun == stats.workerRun + 1);
+    CHECK(restarted.workerRun != stats.workerRun);
     CHECK(restarted.ticks >= 3);
     CHECK(restarted.renderErrors == restarted.ticks);
     CHECK(restarted.renderErrorFrames == restarted.ticks);
@@ -767,6 +798,7 @@ int main() {
     testBackendBoundaryAndHold();
     testBackendWorkerLifetime();
     testEngineIndependentClock();
+    testWorkerRunIdentifiers();
     testEngineReportAggregation();
     if (failures) {
         std::cerr << failures << " test assertion(s) failed\n";

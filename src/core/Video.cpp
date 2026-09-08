@@ -23,6 +23,7 @@ constexpr size_t kMaxAudioHistory = 65536;
 constexpr uint64_t kMaxPendingTriggers = 4096;
 
 std::atomic<uint64_t> nextNodeKey{1};
+std::atomic<uint64_t> nextWorkerRun{1};
 
 bool validFormat(const Format& format) {
     if (format.width <= 0 || format.height <= 0 || format.width > kMaxDimension ||
@@ -987,7 +988,6 @@ struct Engine::Impl {
     bool running = false;
     bool stopRequested = false;
     std::thread worker;
-    uint64_t workerRuns = 0;
 
     void run() {
         using Clock = std::chrono::steady_clock;
@@ -1004,7 +1004,7 @@ struct Engine::Impl {
         {
             std::lock_guard<std::mutex> lock(mutex);
             statistics = {};
-            statistics.workerRun = ++workerRuns;
+            statistics.workerRun = nextWorkerRun.fetch_add(1, std::memory_order_relaxed);
         }
         while (true) {
             const auto target = origin + std::chrono::duration_cast<Clock::duration>(
