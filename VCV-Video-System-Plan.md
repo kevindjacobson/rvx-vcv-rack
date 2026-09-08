@@ -130,6 +130,8 @@ The detailed I/O requirements in the feasibility report remain part of this plan
 
 **7. Memory Palace-inspired module**
 
+The detailed [Memory Palace behavior sheet](docs/MEMORY-PALACE.md) selects V19 / package 1.9.0 as a historical comparison target and records newer firmware differences. It separates primary-source facts from proposed RVX routing, control laws, progressive delay semantics and unrun acceptance gates. In particular, the guide's frame-delay range does not resolve the hardware's field-rate recursion or contextual media controls; those remain explicit fidelity questions.
+
 Reference behavior includes four paths: Warp transforms within keyed feedback; Paint transforms incoming imagery before accumulation; Scene composites a transformed foreground; Ghost combines different moments. The guide also documents luma/chroma/alpha keys, media/live routing, a 0–60-frame delay, motion controls, tiling and mirroring. Freeze captures the input and subsequent Freeze events capture another single frame; Clear exits that frozen state. The primary controls are sampled at frame rate. These are requirements to compare against the [Memory Palace guide](https://community.lzxindustries.net/t/memory-palace-user-guide/884), with firmware revision selected before making a fidelity claim.
 
 Implementation proposal: expose an integrated memory instrument backed by reusable delay, transform and key operators. Provide separately named actions for unfreezing and erasing canvas/history, so the two operations cannot be confused. Document zero-delay feedforward separately from the mandatory causal delay in a feedback loop. Default patch recall saves settings and starts with empty live history; embedding captured state is an explicit option.
@@ -137,6 +139,8 @@ Implementation proposal: expose an integrated memory instrument backed by reusab
 Completion requires tests for all four routings, exact delay indexing, capture/freeze events, key inversion, border modes, source changes and repeated color processing. Pixel-identical firmware matching is unverified; interpolation, precision and edge handling need reference clips or hardware comparisons.
 
 **8. NTSC and dirty mixing**
+
+Preliminary, deferred design notes for the user-requested video → ordinary Rack waveform → video path are recorded in the [video/audio round-trip design notes](docs/VIDEO-AUDIO-ROUNDTRIP.md) for issue #16; they do not authorize implementation. Its slowed composite and real-time coarse raster modes remain proposed supplements to this subsystem; ordinary audio cables cannot carry full-bandwidth NTSC at normal speed. The sequence before coding is: finish prototype #13; settle the shared contracts in #3; establish the Syphon boundary in #5; complete #7's NTSC specification and place the waveform work in its implementation sequence; use #9 to confirm release placement and obtain coding approval; then implement #16. Memory Palace #6 can coordinate optional later feedback integration, but is not a prerequisite for the feedforward path.
 
 Treat this as a patchable subsystem with three modules: Encoder, Dirty Mixer and Receiver. A convenience combined panel can come later. Keep clean RGB mixing available separately.
 

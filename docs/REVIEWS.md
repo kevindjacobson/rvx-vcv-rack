@@ -27,3 +27,8 @@ All reviews below were newly spawned with `fork_turns: "none"`, with requirement
 Reviewer probes were kept outside the repository while investigating. Durable regression coverage belongs in the committed tests. Superseded reviews and reproduced defects are preserved here so later claims can identify which source revision was actually checked.
 
 The native audio example additionally exposed drift between Rack's fallback audio clock and the independent video clock. This integration finding is separate from the review findings; the bounded recovery policy is implemented in `53aba86`, with interrupted-capture recovery in `76e43ae`. The native Fundamental VCO example displayed a waveform after the first repair. Final runtime verification remains in the validation record.
+
+
+## Experimental merge preparation
+
+Fresh `/root/review_prototype_merge_code` reviewed `413a149` and found that disabling publication never reached the backend and that hold-last could replay a previously selected source. Both were repaired at `fb7cc56` with renderer/backend regressions. Fresh `/root/review_prototype_repairs_merge` reviewed the actual-main integration `a1077ff` against `fa38787`; it found publisher disable was still ignored during graph preflight rejection and numeric test comparisons could accept NaN. Those findings were repaired at `3115d57`, with independent sanitized reproducers and non-finite negative checks. Source/SDK validation is recorded in [VALIDATION.md](VALIDATION.md). The final exact-head review and merge audit are recorded in [PR #14](https://github.com/kevindjacobson/rvx-vcv-rack/pull/14). Experimental integration leaves issue #13’s unrun acceptance gates open.

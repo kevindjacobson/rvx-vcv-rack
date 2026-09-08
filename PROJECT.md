@@ -6,6 +6,8 @@ The broader first release remains in research and specification. On September 7,
 
 Confirmed requirements are Mac support; close reproduction of LZX controls, ports and analog signal behavior; Memory Palace processing; NTSC and dirty mixing; and bidirectional Syphon with selection modeled on Rack audio I/O.
 
+The user also requests video → ordinary Rack audio waveform → video conversion with NTSC-like behavior. The [preliminary, deferred video/audio round-trip design notes](docs/VIDEO-AUDIO-ROUNDTRIP.md) separate proposed slowed composite and real-time coarse raster modes from the high-rate RVX composite path, with explicit bandwidth, timing and information-loss limits for issue #16; they do not authorize implementation. The sequence before coding is: finish prototype #13; settle the shared contracts in #3; establish the Syphon boundary in #5; complete #7's NTSC specification and place the waveform work in its implementation sequence; use #9 to confirm release placement and obtain coding approval; then implement #16. Memory Palace #6 can coordinate optional later feedback integration, but is not a prerequisite for the feedforward path.
+
 Source code is a first-class deliverable. The [engineering review policy](ENGINEERING.md) requires maintainable, reusable implementations and an audit of every open issue before work, before PR readiness/merge, and after each merge. Assumptions, shared contracts, evidence and dependencies must stay consistent as the project evolves. GitHub issue/PR history holds each audit record; README remains user documentation. The repository remains private until the user requests otherwise.
 
 Use separate issue worktrees and parallel workers for independent work. Orchestration uses Ultra; routine writing tasks may use cheaper models/lower effort. Every PR receives a newly spawned independent reviewer with no inherited author conversation before readiness. The engineering policy defines the context supplied to reviewers, escalation and integration rules.
@@ -15,6 +17,7 @@ The prototype development target is the observed Apple M4 with 16 GiB RAM, macOS
 - [RVX implementation plan](VCV-Video-System-Plan.md): architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, effort estimates and outstanding decisions.
 - [RVX LZX feasibility review](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.
 - [Structured grades](research/grades.json): machine-readable assessment data.
+- [Memory Palace behavior sheet](docs/MEMORY-PALACE.md): selected V19 reference, control/port audit, proposed four-path routing and history rules, reusable operators, reference patches and unresolved fidelity gates for issue #6.
 - [Project working instructions](AGENTS.md): planning boundary and documentation practices.
 - [Contribution workflow](CONTRIBUTING.md): one issue, branch and PR per deliverable; review, validation and merge handling.
 
