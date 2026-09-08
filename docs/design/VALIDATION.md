@@ -1,6 +1,6 @@
 # Operator-panel validation
 
-This record separates source/build checks from native Rack observations. The implementation base is `3e2e100c7bd595241f68265039567eede18230e5`. Interactive observations used implementation head `b3b1371c089048b32b76467a3c5008ded0ef189a`; the after images were regenerated from `1f1b07637f84cb607f07d9012a1e6209ea898fa9` after the bypass-state, editable-font-fallback, live-startup-state and conservative status-segment repairs and remained byte-identical.
+This record separates source/build checks from native Rack observations. The implementation base is `3e2e100c7bd595241f68265039567eede18230e5`. Interactive observations used implementation head `b3b1371c089048b32b76467a3c5008ded0ef189a`; the after images were regenerated from `744da86da1ef72bc62367711d2d16bf4689cdac8` after the bypass-state, editable-font-fallback, live-startup-state and conservative status-segment/name repairs and remained byte-identical.
 
 ## Source and package checks
 
@@ -19,7 +19,7 @@ Static mockups were rendered through macOS Quick Look before implementation and 
 
 ## Native before and after images
 
-Rack Pro 2.6.6's `--screenshot 1` mode constructed null-instance widgets and wrote 100% PNGs from the disposable `local.rvx.issue20.panel-review` app/profile. The before set was generated from base `3e2e100c7bd595241f68265039567eede18230e5`; the after set was generated from `1f1b07637f84cb607f07d9012a1e6209ea898fa9`. The command log records Apple M4 / OpenGL 2.1 Metal and successful loading of both packaged Barlow Condensed faces.
+Rack Pro 2.6.6's `--screenshot 1` mode constructed null-instance widgets and wrote 100% PNGs from the disposable `local.rvx.issue20.panel-review` app/profile. The before set was generated from base `3e2e100c7bd595241f68265039567eede18230e5`; the after set was generated from `744da86da1ef72bc62367711d2d16bf4689cdac8`. The command log records Apple M4 / OpenGL 2.1 Metal and successful loading of both packaged Barlow Condensed faces.
 
 | Module | Before | After |
 |---|---|---|
