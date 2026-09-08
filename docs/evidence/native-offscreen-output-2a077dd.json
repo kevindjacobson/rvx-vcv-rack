@@ -1,0 +1,20 @@
+{
+  "date": "2026-09-07",
+  "runtime_revision": "2a077dd50791247bffac4c7a863a89ace496aa66",
+  "scenario": "Output-only observation while the native Video Monitor was entirely above the viewport in the isolated validation host",
+  "source_scope": "An unused source was published by the predecessor helper; the stress patch used its internal generators. This case intentionally does not test incoming Syphon.",
+  "metrics": {
+    "actualDurationSeconds": 20.0032,
+    "completedFramePtrs": 598,
+    "pixelHashChanges": 597,
+    "activeReceiveWindowSeconds": 19.9745,
+    "receivedFpsInActiveWindow": 29.8881,
+    "outputAmbiguousPolls": 0,
+    "outputIdentityChanges": 0,
+    "formatMismatchFrames": 0
+  },
+  "selected_output_application": "RVX Validation Rack",
+  "probe_source_sha256": "18ad63988053f62b948630923e33d2a5d1d34579c97e55c694189c4f98300567",
+  "observation": "Native screenshots immediately before and after the observation showed the Monitor offscreen. Scrolling it back into view restored an advancing preview.",
+  "limits": "The old helper success flag is not used. This record uses output frame identities/hashes and retrospectively checked application identity; it does not assert input traversal or end-to-end latency. The user reported moving the mouse during work; no window, patch or topology change was observed on recheck."
+}
