@@ -1,6 +1,7 @@
 {
   "version": "2.6.6",
   "zoom": 0.75,
+  "gridOffset": [-2, -0.02],
   "modules": [
     {
       "id": 100,
