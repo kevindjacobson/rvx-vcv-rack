@@ -2,6 +2,8 @@
 
 **Installation**
 
+**RVX is vibe coded slop.** This is experimental, AI-assisted software. Expect bugs, rough edges, and breaking changes.
+
 RVX is not yet available to install. No plugin release or source build is available.
 
 **Quick start**
