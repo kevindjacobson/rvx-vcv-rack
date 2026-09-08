@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-07",
+  "target": "Apple M4, 16 GiB, macOS 26.2, Rack Pro 2.6.6 arm64",
+  "scenario": "Core Audio Audio-2 plus Fundamental VCO; no RVX nodes in validation process; no cables to hardware outputs",
+  "configured_audio": {
+    "device_name": "Scarlett 4i4 4th Gen",
+    "sample_rate_hz": 48000,
+    "block_size_frames": 512
+  },
+  "observed_hal_at_start": {
+    "nominalSampleRateHz": 48000.0,
+    "actualSampleRateHz": 48000.0,
+    "bufferFrameSize": 512,
+    "inputChannelCount": 6,
+    "outputChannelCount": 6,
+    "deviceIsRunningSomewhere": true
+  },
+  "requested_observation_seconds": 600,
+  "device_wide_overload_notifications": 0,
+  "listener_registration": "noErr",
+  "listener_removal": "noErr",
+  "fixture_generator_revision": "8a06c1d1f3ce17aff73cc0ca22712f25831a8534",
+  "fixture_sha256": "9135f1bcca9adef4abb6df800f478b0821f217c6b5ed33c6f49651a6dcbe84ba",
+  "limits": "Device-wide notifications are not Rack-specific underrun counts and do not cover its internal ring-buffer zero-fills/drops. Two other Rack processes and development activity remained present. Device UID and transient device/process IDs are intentionally omitted.",
+  "measurement_tools": {
+    "stage": "Temporary predecessors of the opt-in tools adopted in b1a4b95; these runs did not use the later packaged probe binaries",
+    "source_sha256": {
+      "rvx_coreaudio_probe.cpp": "1d3bd77c6790bea0f454057bb300d75fca0bab44b31b71d748cbed54a9545d10"
+    }
+  }
+}

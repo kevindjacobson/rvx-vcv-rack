@@ -16,3 +16,13 @@ September 7, 2026. Reviewed main `e46ae395909d0cf023b57dc00fda0ab9c38baaa1`, pro
 The implementation uses shared frame/graph, signal arithmetic, timestamped capture, delay and backend interfaces across six module kinds. Specific Rack lifecycle and Syphon ownership code remains at their boundaries. [Contracts](PROTOTYPE.md), [independent reviews](REVIEWS.md), [Rack adapter](RACK-ADAPTER.md), [Syphon](SYPHON.md) and [validation](VALIDATION.md) identify behavior, reuse decisions, exact evidence and approximation limits. README remains installation, quick start and the module table only.
 
 Before any readiness/merge action, inspect the actual latest base and open issue/PR bodies again. A later merge requires a separate post-merge audit; this record does not claim one occurred.
+
+## Autonomous continuation audit
+
+The user requested continued autonomous building on September 7, 2026. Re-read all 11 issue bodies and three open PRs against unchanged main before further work. Scoped prototype validation continues in `issue-13-prototype`; a separate `issue-13-host-validation` worktree supplied bounded timing statistics, with fresh review and repaired run identities before integration as `2a077dd`. A separate validation app/profile leaves the user's edited test patch running.
+
+Policy #12 at `095c4bb62f44fcec887f39973b058f4ab0a195e1` and workflow #10 at `4730b124858b55617db56efbcb3e1b58ca36f1d4` now repair their scoped-approval wording. Fresh reviewer `/root/review_workflow_approval` found no actionable findings in those heads and prospective tree `175c42f8e61e95aaf041f21ff61bc511e8925f1d`. The policy PR is ready for user review; workflow #10 remains draft pending its declared policy dependency and actual-base reconciliation. No merge occurred. This supersedes the earlier pending-wording action above.
+
+Issue #6 has a separate worktree for its Memory Palace behavior specification. This advances the existing planning deliverable without treating prototype delay as the complete Memory Palace instrument. Broader first-release requirements and their fidelity gates remain open.
+
+The continuation at runtime `2a077dd` completes the combined native audio/video/Syphon run and separate 600-second CoreAudio baseline/stress observations. Its p99 is 24.900 ms, with 26/18,812 completed-render deadline misses, 24 skipped ticks, no renderer/adapter errors and 34,655,640 current frame bytes. Both CoreAudio intervals report zero device-wide overload notifications; Rack-internal underrun counters remain unavailable. Update #2–#5/#13 and PR #14 with that distinction, the separate keyboard lifecycle checks and the remaining physical reconnect/latency and native interaction gates. No acceptance threshold is weakened, and PR #14 remains draft.

@@ -1,0 +1,83 @@
+{
+  "date": "2026-09-07",
+  "runtime_revision": "2a077dd50791247bffac4c7a863a89ace496aa66",
+  "fixture_generator_revision": "8a06c1d1f3ce17aff73cc0ca22712f25831a8534",
+  "target": "Apple M4, 16 GiB, macOS 26.2, Rack Pro 2.6.6 arm64",
+  "fixture": "Core Audio Audio-2 and Fundamental VCO, two CV Bridges in buffered mode, Test Image, two processors, explicit feedback delay, Monitor, simultaneous Syphon receive/publish; eight RVX nodes and nine video edges",
+  "audio": {
+    "device_name": "Scarlett 4i4 4th Gen",
+    "sample_rate_hz": 48000,
+    "block_size_frames": 512,
+    "requested_observation_seconds": 600,
+    "device_wide_overload_notifications": 0,
+    "listener_registration": "noErr",
+    "listener_removal": "noErr"
+  },
+  "native_renderer": {
+    "first_log_snapshot_host_seconds": 0.69,
+    "final_log_snapshot_host_seconds": 629.152,
+    "observed_snapshot_span_seconds": 628.462,
+    "metrics": {
+      "workerRun": 1,
+      "renderFrames": 18812,
+      "renderDeadlineMisses": 26,
+      "skippedTicks": 24,
+      "lateTickSlots": 50,
+      "p50Ms": 22.2,
+      "p95Ms": 23.7,
+      "p99Ms": 24.9,
+      "lastMs": 21.595,
+      "maxMs": 80.853,
+      "histogramSaturated": 0,
+      "renderErrors": 0,
+      "renderErrorFrames": 0,
+      "frameBytes": 34655640,
+      "nodes": 8,
+      "edges": 9,
+      "adapterErrors": 0,
+      "monitorSequence": 18834,
+      "sourceSequence": 18835
+    },
+    "render_deadline_miss_percent": 0.13821,
+    "timing_scope": "Cumulative completed renders since worker start, including startup. The >600-second native log span ends while the external source remains active. Quantiles use fixed 0.05 ms upper-bound buckets through 100 ms; zero saturated samples. Skipped scheduled ticks are separate from completed-render deadline misses."
+  },
+  "syphon": {
+    "requestedDurationSeconds": 660,
+    "actualDurationSeconds": 660,
+    "publishedFrames": 19779,
+    "missedPublishCadenceSlots": 2,
+    "completedFramePtrs": 19113,
+    "pixelHashChanges": 19112,
+    "formatMismatchFrames": 0,
+    "activeReceiveWindowSeconds": 638.502,
+    "receivedFpsInActiveWindow": 29.9325,
+    "outputAmbiguousPolls": 0,
+    "outputIdentityChanges": 0,
+    "receivedInterarrivalOverrunCount": 22,
+    "estimatedMissedReceivedCadenceSlots": 26,
+    "maxReceivedGapMs": 91.9865
+  },
+  "sampled_resources": {
+    "sample_count": 476,
+    "interval_seconds": 1,
+    "sampled_window_seconds": 479.081,
+    "first_rss_kib": 243088,
+    "last_rss_kib": 248672,
+    "maximum_sampled_rss_kib": 248672,
+    "scope": "One-second process snapshots during the later eight minutes of the run; sampled maximum is not a kernel high-water mark. Total Rack RSS includes host/libraries and is distinct from RVX current frame accounting."
+  },
+  "fixture_sha256": "64cb134f4762e61b0bc1b4e6c500089e95f46afd6428f1c6a6ab367ef97127e2",
+  "limits": [
+    "CoreAudio notifications are device-wide; Rack ignores RtAudioStreamStatus and exposes no internal underrun/zero-fill/drop counts.",
+    "The Syphon active receive window starts after initial server discovery; receive FPS is observed, not metadata. Frame counts use received FramePtr identity plus pixel hashes.",
+    "Other Rack processes and development activity remained present in baseline and stress; this is not an isolated machine capacity limit.",
+    "No cables feed hardware audio outputs. Physical unplug/reconnect and end-to-end audiovisual latency remain untested."
+  ],
+  "measurement_tools": {
+    "stage": "Temporary predecessors of the opt-in tools adopted in b1a4b95; these runs did not use the later packaged probe binaries",
+    "source_sha256": {
+      "rvx_coreaudio_probe.cpp": "1d3bd77c6790bea0f454057bb300d75fca0bab44b31b71d748cbed54a9545d10",
+      "rvx_syphon_path_probe.mm": "18ad63988053f62b948630923e33d2a5d1d34579c97e55c694189c4f98300567"
+    }
+  }
+}
