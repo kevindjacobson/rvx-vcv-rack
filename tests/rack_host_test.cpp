@@ -50,7 +50,129 @@ int main() {
     plugin->version = "2.0.0";
     plugin->addModel(modelRvxTestImage);
     plugin->addModel(modelRvxVideoIo);
+    plugin->addModel(modelRvxFrameDelay);
     rack::plugin::plugins.push_back(plugin);
+
+    using rvx::rackadapter::FrameDelayModule;
+    static_assert(FrameDelayModule::CLEAR_PARAM == rvx::kDelayClearParam,
+        "Clear parameter identity must remain stable");
+    static_assert(FrameDelayModule::FRAMES_PARAM == rvx::kDelayFramesParam,
+        "Frames must be appended at parameter index 1");
+    static_assert(FrameDelayModule::IMAGE_INPUT == 0,
+        "Image input identity must remain stable");
+    static_assert(FrameDelayModule::CLEAR_INPUT == 1,
+        "Clear gate identity must remain stable");
+    static_assert(FrameDelayModule::IMAGE_OUTPUT == 0,
+        "Image output identity must remain stable");
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+    context.engine = new rack::engine::Engine;
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
+    // Use Rack's actual parameter quantity and module JSON paths so native
+    // editing, reset, patch persistence, and legacy omission stay coherent.
+    {
+        FrameDelayModule delay;
+        rack::engine::ParamQuantity* frames =
+            delay.getParamQuantity(FrameDelayModule::FRAMES_PARAM);
+        assert(delay.getNumParams() == 2);
+        assert(delay.getNumInputs() == 2);
+        assert(delay.getNumOutputs() == 1);
+        assert(frames->snapEnabled);
+        assert(frames->getMinValue() == static_cast<float>(rvx::kMinDelayFrames));
+        assert(frames->getMaxValue() == static_cast<float>(rvx::kMaxDelayFrames));
+        assert(frames->getDefaultValue() == static_cast<float>(rvx::kDefaultDelayFrames));
+        assert(frames->getValue() == static_cast<float>(rvx::kDefaultDelayFrames));
+        assert(delay.node()->params[rvx::kDelayFramesParam].load()
+            == static_cast<float>(rvx::kDefaultDelayFrames));
+
+        frames->setDisplayValueString("61");
+        assert(frames->getValue() == static_cast<float>(rvx::kMaxDelayFrames));
+        frames->setDisplayValueString("0");
+        assert(frames->getValue() == static_cast<float>(rvx::kMinDelayFrames));
+        frames->setDisplayValueString("29.6");
+        assert(frames->getValue() == 30.f);
+        rvx::rackadapter::FrameCountDisplay readout;
+        readout.quantity = frames;
+        readout.step();
+        assert(readout.text == "30");
+        delay.process({48000.f, 1.f / 48000.f, 0});
+        assert(delay.node()->params[rvx::kDelayFramesParam].load() == 30.f);
+
+        const uint64_t beforeClear = delay.node()->resets.load();
+        delay.inputs[FrameDelayModule::CLEAR_INPUT].channels = 1;
+        delay.inputs[FrameDelayModule::CLEAR_INPUT].setVoltage(10.f);
+        delay.process({48000.f, 1.f / 48000.f, 1});
+        assert(delay.node()->resets.load() == beforeClear + 1);
+        delay.process({48000.f, 1.f / 48000.f, 2});
+        assert(delay.node()->resets.load() == beforeClear + 1);
+        delay.inputs[FrameDelayModule::CLEAR_INPUT].setVoltage(0.f);
+        delay.process({48000.f, 1.f / 48000.f, 3});
+        delay.params[FrameDelayModule::CLEAR_PARAM].setValue(1.f);
+        delay.process({48000.f, 1.f / 48000.f, 4});
+        assert(delay.node()->resets.load() == beforeClear + 2);
+
+        delay.onReset(rack::engine::Module::ResetEvent{});
+        assert(frames->getValue() == static_cast<float>(rvx::kDefaultDelayFrames));
+        delay.process({48000.f, 1.f / 48000.f, 5});
+        assert(delay.node()->params[rvx::kDelayFramesParam].load()
+            == static_cast<float>(rvx::kDefaultDelayFrames));
+    }
+
+    {
+        FrameDelayModule* legacy =
+            static_cast<FrameDelayModule*>(modelRvxFrameDelay->createModule());
+        legacy->params[FrameDelayModule::FRAMES_PARAM].setValue(42.f);
+        legacy->process({48000.f, 1.f / 48000.f, 0});
+        json_t* oldPatch = moduleJson("FrameDelay", NULL);
+        json_object_set_new(oldPatch, "params",
+            json_pack("[{s:i,s:f}]", "id", FrameDelayModule::CLEAR_PARAM, "value", 0.0));
+        legacy->fromJson(oldPatch);
+        json_decref(oldPatch);
+        assert(legacy->params[FrameDelayModule::FRAMES_PARAM].getValue()
+            == static_cast<float>(rvx::kDefaultDelayFrames));
+        assert(legacy->node()->params[rvx::kDelayFramesParam].load()
+            == static_cast<float>(rvx::kDefaultDelayFrames));
+
+        legacy->params[FrameDelayModule::FRAMES_PARAM].setValue(30.f);
+        oldPatch = moduleJson("FrameDelay", NULL);
+        legacy->fromJson(oldPatch);
+        json_decref(oldPatch);
+        assert(legacy->params[FrameDelayModule::FRAMES_PARAM].getValue()
+            == static_cast<float>(rvx::kDefaultDelayFrames));
+        assert(legacy->node()->params[rvx::kDelayFramesParam].load()
+            == static_cast<float>(rvx::kDefaultDelayFrames));
+        delete legacy;
+    }
+
+    {
+        FrameDelayModule* saved =
+            static_cast<FrameDelayModule*>(modelRvxFrameDelay->createModule());
+        saved->getParamQuantity(FrameDelayModule::FRAMES_PARAM)->setDisplayValueString("42");
+        json_t* patch = saved->toJson();
+        FrameDelayModule* restored =
+            static_cast<FrameDelayModule*>(modelRvxFrameDelay->createModule());
+        restored->fromJson(patch);
+        json_decref(patch);
+        assert(restored->params[FrameDelayModule::FRAMES_PARAM].getValue() == 42.f);
+        assert(restored->node()->params[rvx::kDelayFramesParam].load() == 42.f);
+        delete saved;
+        delete restored;
+    }
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
+    delete context.engine;
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+    context.engine = NULL;
 
     {
         VideoIoModule restored;

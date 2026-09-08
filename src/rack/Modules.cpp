@@ -188,7 +188,11 @@ struct CvBridgeModule : Module {
 };
 
 struct FrameDelayModule : Module {
-    enum ParamIds { CLEAR_PARAM, NUM_PARAMS };
+    enum ParamIds {
+        CLEAR_PARAM = kDelayClearParam,
+        FRAMES_PARAM = kDelayFramesParam,
+        NUM_PARAMS
+    };
     enum InputIds { IMAGE_INPUT, CLEAR_INPUT, NUM_INPUTS };
     enum OutputIds { IMAGE_OUTPUT, NUM_OUTPUTS };
     dsp::SchmittTrigger clearButtonDetector;
@@ -197,6 +201,11 @@ struct FrameDelayModule : Module {
     FrameDelayModule() : Module(Kind::Delay) {
         config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, 0);
         configButton(CLEAR_PARAM, "Clear history");
+        engine::ParamQuantity* frames = configParam(FRAMES_PARAM,
+            static_cast<float>(kMinDelayFrames), static_cast<float>(kMaxDelayFrames),
+            static_cast<float>(kDefaultDelayFrames), "Frames", " frames");
+        frames->snapEnabled = true;
+        frames->displayPrecision = 2;
         configInput(IMAGE_INPUT, "Image");
         configInput(CLEAR_INPUT, "Clear gate");
         configOutput(IMAGE_OUTPUT, "Delayed image");
@@ -208,6 +217,13 @@ struct FrameDelayModule : Module {
         const bool gate = clearGateDetector.process(inputs[CLEAR_INPUT].getVoltage());
         if (button || gate)
             incrementTrigger(node_->resets);
+    }
+
+    void fromJson(json_t* rootJ) override {
+        // Rack can restore into an existing module. Seed the appended parameter
+        // so a legacy patch that omits it cannot inherit that object's old value.
+        params[FRAMES_PARAM].setValue(static_cast<float>(kDefaultDelayFrames));
+        Module::fromJson(rootJ);
     }
 
     void onReset(const ResetEvent& e) override {
@@ -565,6 +581,21 @@ struct StatusText : widget::Widget {
     }
 };
 
+struct FrameCountDisplay : app::LedDisplayChoice {
+    engine::ParamQuantity* quantity = NULL;
+
+    void step() override {
+        text = std::to_string(quantity
+            ? normalizedDelayFrames(quantity->getValue())
+            : kDefaultDelayFrames);
+        app::LedDisplayChoice::step();
+    }
+
+    void onButton(const ButtonEvent& e) override {
+        (void) e;
+    }
+};
+
 struct TestImageWidget : ModuleWidget {
     TestImageWidget(TestImageModule* module) : ModuleWidget(module) {
         PrototypePanel* panel = new PrototypePanel(12, "TEST IMAGE", kCyan);
@@ -647,16 +678,27 @@ struct CvBridgeWidget : ModuleWidget {
 struct FrameDelayWidget : ModuleWidget {
     FrameDelayWidget(FrameDelayModule* module) : ModuleWidget(module) {
         PrototypePanel* panel = new PrototypePanel(10, "FRAME DELAY", kCyan);
-        panel->label(25.f, 29.f, "CLEAR HISTORY", 8.f, kMuted);
-        panel->label(14.f, 78.f, "IMAGE", 8.f, kCyan);
-        panel->label(37.f, 78.f, "CLEAR", 8.f, kInk);
-        panel->label(25.f, 108.f, "DELAYED", 8.f, kCyan);
+        panel->label(25.f, 20.f, "FRAMES", 8.f, kMuted);
+        panel->label(25.f, 56.f, "CLEAR HISTORY", 8.f, kMuted);
+        panel->label(14.f, 80.f, "IMAGE", 8.f, kCyan);
+        panel->label(37.f, 80.f, "CLEAR", 8.f, kInk);
+        panel->label(25.f, 109.f, "DELAYED", 8.f, kCyan);
         setPanel(panel);
         addScrews(this, box.size.x);
-        addParam(createParamCentered<LEDButton>(pos(25.f, 40.f), module, FrameDelayModule::CLEAR_PARAM));
+        addParam(createParamCentered<RoundBlackSnapKnob>(pos(25.f, 35.f), module,
+            FrameDelayModule::FRAMES_PARAM));
+        FrameCountDisplay* frameCount = new FrameCountDisplay;
+        frameCount->box.pos = pos(18.f, 46.f);
+        frameCount->box.size = pos(14.f, 8.f);
+        frameCount->quantity = module
+            ? module->getParamQuantity(FrameDelayModule::FRAMES_PARAM) : NULL;
+        frameCount->text = std::to_string(kDefaultDelayFrames);
+        addChild(frameCount);
+        addParam(createParamCentered<LEDButton>(pos(25.f, 64.f), module,
+            FrameDelayModule::CLEAR_PARAM));
         StatusText* status = new StatusText;
-        status->box.pos = pos(5.f, 53.f);
-        status->box.size = pos(40.f, 16.f);
+        status->box.pos = pos(5.f, 69.f);
+        status->box.size = pos(40.f, 9.f);
         if (module) status->node = module->node();
         addChild(status);
         addVideoInput(pos(14.f, 89.f), FrameDelayModule::IMAGE_INPUT, PortType::Image);
