@@ -1,6 +1,6 @@
 # Operator-panel validation
 
-This record separates source/build checks from native Rack observations. The implementation base is `3e2e100c7bd595241f68265039567eede18230e5`. Native observations and after images use implementation head `b3b1371c089048b32b76467a3c5008ded0ef189a`; later commits only add this evidence.
+This record separates source/build checks from native Rack observations. The implementation base is `3e2e100c7bd595241f68265039567eede18230e5`. Interactive observations used implementation head `b3b1371c089048b32b76467a3c5008ded0ef189a`; the after images were regenerated from `c1dfcafa255e956f505647a909b12e6172738d27` after the bypass-state and editable-font-fallback repairs and remained byte-identical.
 
 ## Source and package checks
 
@@ -19,7 +19,7 @@ Static mockups were rendered through macOS Quick Look before implementation and 
 
 ## Native before and after images
 
-Rack Pro 2.6.6's `--screenshot 1` mode constructed null-instance widgets and wrote 100% PNGs from the disposable `local.rvx.issue20.panel-review` app/profile. The before set was generated from base `3e2e100c7bd595241f68265039567eede18230e5`; the after set was generated from `b3b1371c089048b32b76467a3c5008ded0ef189a`. The command log records Apple M4 / OpenGL 2.1 Metal and successful loading of both packaged Barlow Condensed faces.
+Rack Pro 2.6.6's `--screenshot 1` mode constructed null-instance widgets and wrote 100% PNGs from the disposable `local.rvx.issue20.panel-review` app/profile. The before set was generated from base `3e2e100c7bd595241f68265039567eede18230e5`; the after set was generated from `c1dfcafa255e956f505647a909b12e6172738d27`. The command log records Apple M4 / OpenGL 2.1 Metal and successful loading of both packaged Barlow Condensed faces.
 
 | Module | Before | After |
 |---|---|---|
