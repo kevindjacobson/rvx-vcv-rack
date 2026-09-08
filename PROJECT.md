@@ -4,6 +4,8 @@ RVX is the project and plugin-suite name; `rvx-vcv-rack` is the repository name 
 
 The user approved implementation of the six-module prototype in issue #13 on September 7, 2026. The prototype contract and observed validation target are recorded in [docs/PROTOTYPE.md](docs/PROTOTYPE.md). Full-release specifications and fidelity validation remain ongoing.
 
+Issue #18 follows the user's frame-count question with an adjustable Frame Delay control, developed in its own worktree and PR on top of the prototype. Its one-frame default preserves existing patches; longer histories require separate temporal and resource validation. Video-to-audio waveform conversion in #16 is deferred until its shared signal, Syphon and NTSC prerequisites are ready; draft PR #17 preserves preliminary notes only.
+
 Confirmed requirements are Mac support; close reproduction of LZX controls, ports and analog signal behavior; Memory Palace processing; NTSC and dirty mixing; and bidirectional Syphon with selection modeled on Rack audio I/O.
 
 The prototype development target is the observed Apple M4 with 16 GiB RAM, macOS 26.2 and Rack Pro 2.6.6 standalone arm64. See [validation record](docs/VALIDATION.md) for measured evidence and remaining gates. Outstanding planning work includes confirmation of the full-release platform/DAW scope, first-release control/port sheets, reference revisions and fidelity criteria, and user review of the completed specification. The explicit prototype approval authorizes this bounded implementation; it does not establish full-release readiness.

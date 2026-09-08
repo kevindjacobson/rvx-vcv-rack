@@ -24,12 +24,14 @@ To use an existing SDK, set `RACK_DIR` when invoking make, for example `make -j4
 1. Open an included patch from `examples/` in Rack, or add **RVX Test Image**, **Signal Processor**, and **Video Monitor** from the module browser.
 2. Connect Test Image's image output to Signal Processor's image input, then its image output to Video Monitor. Change gain and offset to process the image.
 3. Add **CV Bridge** to convert ordinary Rack CV/audio into a video field, then connect its field output to Signal Processor's field input.
-4. Add **Frame Delay** inside a feedback connection to give the loop one video tick of delay.
+4. Add **Frame Delay** inside a feedback connection. Set **Frames** from 1 to 60; the number below the knob shows the setting. One frame is the default. **Clear** empties its history.
 5. Use **Video I/O** for Syphon. Right-click it to select an application/server, name the publisher, and enable output. Input and output can run together; audio uses a separate Rack Audio/Core Audio route.
 
 Test Image's **Phase Speed** animates every pattern. Turn it clockwise or counterclockwise for opposite directions; set it to zero to stop. Changing pattern or speed preserves phase; reset the module to return to its initial phase. Open `examples/RVX-Phase-Patterns.vcv` to see all four modes together. To publish a pattern through Syphon, add Video I/O, connect that Test Image’s image output to Video I/O’s image input, then right-click Video I/O to name the publisher and enable output.
 
 `examples/RVX-Audio-to-Video.vcv` uses the VCV Fundamental VCO (tested with Fundamental 2.6.4) to demonstrate buffered audio-to-raster conversion. Change the VCO frequency to change the image. Other examples use RVX modules only.
+
+Open `examples/RVX-Frame-Delay.vcv` to compare a moving ramp with its delayed image. It starts at 15 frames (about half a second). Turn **Frames** or right-click the knob to enter a count. Increasing the count may show black while the new history fills. The graph shares a memory limit; reduce the count if a budget diagnostic appears.
 
 Video ports connect RVX modules. Ordinary audio/CV ports accept standard Rack signals. The monitor clips its preview to the display range; processing retains signed and above-range values.
 
@@ -46,7 +48,7 @@ The six prototype modules are experimental utilities. Other rows list proposed m
 | Signal Processor | Signed image mixing, gain/offset and field conversion | Prototype |
 | Component Split / Combine | Image and individual signal-field conversion | Unreleased |
 | CV Bridge | Rack audio/CV to video control conversion | Prototype |
-| Frame Delay | Explicit frame delay and feedback storage | Prototype |
+| Frame Delay | Adjustable 1–60-frame image delay and feedback storage | Prototype |
 | Still Image Input | Still-image loading | Unreleased |
 | NTSC Encoder | Image-to-composite signal encoding | Unreleased |
 | Dirty Mixer | Composite signal mixing and distortion | Unreleased |
