@@ -2,7 +2,7 @@
 
 RVX is the project and plugin-suite name. The repository is `rvx-vcv-rack`. RVX provides analog video synthesis for VCV Rack on Mac, using LZX hardware as the functional reference.
 
-September 7, 2026. Status: proposed first-release design, awaiting user review. The user separately approved the six-module architecture prototype tracked by issue #13 on September 7, 2026, including its implementation, dependency setup and validation. That scoped approval does not approve broader release work or establish that unresolved empirical and fidelity gates have passed.
+September 7, 2026. Status: full-release design remains proposed. The user explicitly approved building the six-module prototype in issue #13; its implementation, dependency setup and validation are authorized. See [prototype contract](docs/PROTOTYPE.md) for the current experiment and observed target. Unrun acceptance gates remain unverified.
 
 The companion [RVX LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
 
@@ -20,7 +20,7 @@ The proposed first release includes the creative functions above. Broader LZX ca
 
 Confirmed design preference: reproduce LZX controls, ports and behavior as closely as practical, with video represented as analog signals wherever that affects patch behavior. Preserve control order, ranges, center points, normalizations and modulation response. Shared internal operators must not flatten meaningful differences between modules. Additional software settings belong in secondary controls so the primary panel remains familiar.
 
-Provisional platform defaults while machine details are pending: Apple Silicon, Rack 2 standalone and SD first. These are not inferred facts about the user's machine. Intel, Rack Pro in a DAW, and higher resolutions require separately named validation targets. Panel artwork and individual module naming remain design work; functional control fidelity is the confirmed priority.
+The approved prototype runs on the observed Apple M4, 16 GiB, macOS 26.2 and Rack Pro 2.6.6 standalone arm64 at SD resolution; its results belong in [docs/VALIDATION.md](docs/VALIDATION.md). Confirmation of the full-release target remains open. Intel, Rack Pro in a DAW, and higher resolutions require separately named validation targets. The prototype uses six RVX utility panels; LZX-style module artwork and control fidelity remain later design work.
 
 **2. Existing work and reuse decision**
 
@@ -197,7 +197,7 @@ At M1, inability to maintain video while the UI is hidden or to share Syphon tex
 
 **11. Validation and performance budget**
 
-Performance targets are provisional until the Mac and host are specified. Proposed baseline: the complete SD demonstration patch at NTSC-class cadence, with output rates measured separately from monitor redraw and no audio underruns attributable to the video workload. Report median, 95th/99th-percentile processing times, missed deadlines, end-to-end latency, CPU/GPU usage and peak/steady memory. A small average render time alone is not enough.
+Prototype engineering budgets and the observed Mac/host are recorded in [docs/VALIDATION.md](docs/VALIDATION.md). Full-release performance targets remain provisional. Proposed baseline: the complete SD demonstration patch at NTSC-class cadence, with output rates measured separately from monitor redraw and no audio underruns attributable to the video workload. Report median, 95th/99th-percentile processing times, missed deadlines, end-to-end latency, CPU/GPU usage and peak/steady memory. A small average render time alone is not enough.
 
 | Test area | Evidence required |
 |---|---|
@@ -224,7 +224,7 @@ This is a substantial graphics/audio application inside Rack. For one experience
 
 | Decision | Proposed position | What resolves it |
 |---|---|---|
-| Mac and host | Apple Silicon / standalone as temporary planning baseline | User's chip, memory, Rack edition/version, and DAW requirement |
+| Mac and host | Prototype measured on M4 / 16 GiB / macOS 26.2 / Rack Pro 2.6.6 standalone arm64 | Full-release target and DAW requirement still need confirmation |
 | Fidelity and interface | Confirmed: close LZX controls/ports and analog signal behavior | Per-module source/revision audit, control sheets and comparison evidence |
 | First-release scope | Core shapes/color + memory + dirty NTSC + bidirectional Syphon | User reviews the staged scope; full catalog remains a roadmap |
 | Renderer | Evaluate Rack-compatible OpenGL first; maintain a backend boundary | Architecture review now; build/lifecycle evidence at M1 after coding approval |
