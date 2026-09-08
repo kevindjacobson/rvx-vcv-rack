@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <csignal>
@@ -154,28 +155,50 @@ void usage(const char* program) {
     std::cerr
         << "usage: " << program << "\n"
         << "       " << program << " --observe-default-output --duration SECONDS\n"
-        << "       " << program << " --observe-device ID|EXACT_NAME --duration SECONDS\n"
+        << "       " << program << " --observe-device EXACT_NAME --duration SECONDS\n"
+        << "       " << program << " --observe-device-id CURRENT_ID --duration SECONDS\n"
         << "       duration must be greater than 0 and no more than 3600\n";
 }
 
 struct Options {
     bool observeDefaultOutput = false;
-    std::optional<std::string> deviceSelector;
+    std::optional<std::string> deviceNameSelector;
+    std::optional<AudioDeviceID> deviceIDSelector;
     std::optional<double> duration;
 };
+
+bool hasDeviceSelector(const Options& options) {
+    return options.deviceNameSelector.has_value() || options.deviceIDSelector.has_value();
+}
+
+bool parseDeviceID(const char* text, AudioDeviceID& result) {
+    AudioDeviceID parsed = kAudioObjectUnknown;
+    const char* end = text + std::char_traits<char>::length(text);
+    auto conversion = std::from_chars(text, end, parsed, 10);
+    if (conversion.ec != std::errc() || conversion.ptr != end || conversion.ptr == text)
+        return false;
+    result = parsed;
+    return true;
+}
 
 std::optional<Options> parseOptions(int argc, char** argv) {
     Options options;
     for (int i = 1; i < argc; ++i) {
         std::string argument = argv[i];
         if (argument == "--observe-default-output") {
-            if (options.observeDefaultOutput || options.deviceSelector) return std::nullopt;
+            if (options.observeDefaultOutput || hasDeviceSelector(options)) return std::nullopt;
             options.observeDefaultOutput = true;
         }
         else if (argument == "--observe-device" && i + 1 < argc) {
-            if (options.observeDefaultOutput || options.deviceSelector) return std::nullopt;
-            options.deviceSelector = argv[++i];
-            if (options.deviceSelector->empty()) return std::nullopt;
+            if (options.observeDefaultOutput || hasDeviceSelector(options)) return std::nullopt;
+            options.deviceNameSelector = argv[++i];
+            if (options.deviceNameSelector->empty()) return std::nullopt;
+        }
+        else if (argument == "--observe-device-id" && i + 1 < argc) {
+            if (options.observeDefaultOutput || hasDeviceSelector(options)) return std::nullopt;
+            AudioDeviceID deviceID = kAudioObjectUnknown;
+            if (!parseDeviceID(argv[++i], deviceID)) return std::nullopt;
+            options.deviceIDSelector = deviceID;
         }
         else if (argument == "--duration" && i + 1 < argc) {
             double duration = 0.0;
@@ -190,7 +213,7 @@ std::optional<Options> parseOptions(int argc, char** argv) {
             return std::nullopt;
         }
     }
-    bool observing = options.observeDefaultOutput || options.deviceSelector.has_value();
+    bool observing = options.observeDefaultOutput || hasDeviceSelector(options);
     if (observing != options.duration.has_value()) return std::nullopt;
     if (options.duration && (*options.duration <= 0.0 || *options.duration > kMaximumDurationSeconds))
         return std::nullopt;
@@ -210,28 +233,30 @@ std::optional<Device> resolveDevice(
         return std::nullopt;
     }
 
-    const std::string& selector = *options.deviceSelector;
-    char* end = nullptr;
-    unsigned long numeric = std::strtoul(selector.c_str(), &end, 10);
-    if (end && *end == '\0') {
+    if (options.deviceIDSelector) {
         auto match = std::find_if(available.begin(), available.end(),
-                                  [&](const Device& device) { return device.id == numeric; });
+                                  [&](const Device& device) {
+                                      return device.id == *options.deviceIDSelector;
+                                  });
         if (match == available.end()) error = "CoreAudio device ID is unavailable";
         else return *match;
         return std::nullopt;
     }
 
+    const std::string& selector = *options.deviceNameSelector;
     std::vector<Device> matches;
     std::copy_if(available.begin(), available.end(), std::back_inserter(matches),
                  [&](const Device& device) { return device.name == selector; });
     if (matches.empty()) error = "exact device name is unavailable";
-    else if (matches.size() > 1) error = "exact device name is ambiguous; use a current numeric ID";
+    else if (matches.size() > 1)
+        error = "exact device name is ambiguous; use --observe-device-id with a current deviceID from the inventory";
     else return matches.front();
     return std::nullopt;
 }
 
 } // namespace
 
+#ifndef RVX_COREAUDIO_SELECTOR_TEST
 int main(int argc, char** argv) {
     auto options = parseOptions(argc, argv);
     if (!options) {
@@ -296,7 +321,8 @@ int main(int argc, char** argv) {
         auto bufferFrames = scalarProperty<UInt32>(device.id, kAudioDevicePropertyBufferFrameSize);
         auto running = scalarProperty<UInt32>(device.id, kAudioDevicePropertyDeviceIsRunningSomewhere);
         std::cout
-            << "{\"name\":" << jsonQuote(device.name)
+            << "{\"deviceID\":" << device.id
+            << ",\"name\":" << jsonQuote(device.name)
             << ",\"isDefaultInput\":" << (defaultInput && device.id == *defaultInput ? "true" : "false")
             << ",\"isDefaultOutput\":" << (defaultOutput && device.id == *defaultOutput ? "true" : "false")
             << ",\"isDefaultSystemOutput\":" << (defaultSystemOutput && device.id == *defaultSystemOutput ? "true" : "false")
@@ -314,7 +340,8 @@ int main(int argc, char** argv) {
     std::cout << "]";
     if (observed) {
         std::cout
-            << ",\"observation\":{\"deviceName\":" << jsonQuote(observed->name)
+            << ",\"observation\":{\"deviceID\":" << observed->id
+            << ",\"deviceName\":" << jsonQuote(observed->name)
             << ",\"requestedDurationSeconds\":" << *options->duration
             << ",\"observedDurationSeconds\":" << observedSeconds
             << ",\"interrupted\":" << (stopRequested ? "true" : "false")
@@ -328,3 +355,45 @@ int main(int argc, char** argv) {
     if (observed && addStatus != noErr) return 66;
     return stopRequested ? 130 : 0;
 }
+#else
+int main() {
+    const std::vector<Device> available = {
+        {41, "123"},
+        {42, "Shared name"},
+        {43, "Shared name"},
+    };
+
+    char program[] = "native-coreaudio-probe";
+    char observeName[] = "--observe-device";
+    char numericName[] = "123";
+    char durationFlag[] = "--duration";
+    char duration[] = "1";
+    char* nameArguments[] = {program, observeName, numericName, durationFlag, duration};
+    auto nameOptions = parseOptions(5, nameArguments);
+    std::string error;
+    auto numericNameMatch = nameOptions ? resolveDevice(*nameOptions, available, error) : std::nullopt;
+    if (!numericNameMatch || numericNameMatch->id != 41) return 1;
+
+    char observeID[] = "--observe-device-id";
+    char currentID[] = "43";
+    char* idArguments[] = {program, observeID, currentID, durationFlag, duration};
+    auto idOptions = parseOptions(5, idArguments);
+    error.clear();
+    auto idMatch = idOptions ? resolveDevice(*idOptions, available, error) : std::nullopt;
+    if (!idMatch || idMatch->id != 43) return 2;
+
+    char sharedName[] = "Shared name";
+    char* ambiguousArguments[] = {program, observeName, sharedName, durationFlag, duration};
+    auto ambiguousOptions = parseOptions(5, ambiguousArguments);
+    error.clear();
+    auto ambiguousMatch = ambiguousOptions
+        ? resolveDevice(*ambiguousOptions, available, error)
+        : std::optional<Device>{};
+    if (ambiguousMatch || error.find("--observe-device-id") == std::string::npos) return 3;
+
+    char invalidID[] = "43x";
+    char* invalidArguments[] = {program, observeID, invalidID, durationFlag, duration};
+    if (parseOptions(5, invalidArguments)) return 4;
+    return 0;
+}
+#endif

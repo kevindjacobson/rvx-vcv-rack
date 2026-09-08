@@ -45,7 +45,15 @@ Observe the default output device, or select an exact device name:
   --duration 600
 ```
 
-The JSON records device name, current nominal sample rate, CoreAudio buffer frame size, channel counts, default roles, running state, overload-property presence and listener registration/removal status. It deliberately omits device UIDs and hardware serials.
+`--observe-device` always treats its argument as an exact name, including names made entirely of digits. If duplicate devices have the same name, inventory the devices immediately before the observation and select one using its current `deviceID`:
+
+```sh
+./build/native-coreaudio-probe \
+  --observe-device-id CURRENT_ID \
+  --duration 600
+```
+
+The JSON records the transient CoreAudio device ID, device name, current nominal sample rate, CoreAudio buffer frame size, channel counts, default roles, running state, overload-property presence and listener registration/removal status. A `deviceID` is valid only for the current CoreAudio device topology and may change after devices are added, removed or restarted. Use it only to disambiguate an immediately following observation; do not persist it in a patch, script or validation configuration. The probe deliberately omits persistent device UIDs and hardware serials.
 
 `SIGINT` or `SIGTERM` ends an observation early, removes the listener and emits an interrupted JSON result.
 
