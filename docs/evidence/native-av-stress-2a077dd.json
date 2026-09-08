@@ -55,7 +55,8 @@
     "outputIdentityChanges": 0,
     "receivedInterarrivalOverrunCount": 22,
     "estimatedMissedReceivedCadenceSlots": 26,
-    "maxReceivedGapMs": 91.9865
+    "maxReceivedGapMs": 91.9865,
+    "selectedOutputApplication": "RVX Validation Rack"
   },
   "sampled_resources": {
     "sample_count": 476,
@@ -80,5 +81,5 @@
       "rvx_syphon_path_probe.mm": "18ad63988053f62b948630923e33d2a5d1d34579c97e55c694189c4f98300567"
     }
   },
-  "post_run_review_limit": "The predecessor probe success flag is not accepted as proof of the external-source-to-Rack path. Internal TestImage/VCO can animate output with missing external input; selection used only output server name; three changing frames could pass despite later outage. These counters remain scoped observations, not verified incoming-source contribution or output application identity."
+  "post_run_review_limit": "The predecessor probe success flag is not accepted as proof of the external-source-to-Rack path. Internal TestImage/VCO can animate output with missing external input; automatic selection used only output server name; three changing frames could pass despite later outage. Retrospective inspection records RVX Validation Rack as selected output application with zero identity changes. These counters remain scoped output observations, not verified incoming-source contribution."
 }
