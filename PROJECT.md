@@ -6,7 +6,7 @@ The project is in research and specification. Plugin implementation has not star
 
 Confirmed requirements are Mac support; close reproduction of LZX controls, ports and analog signal behavior; Memory Palace processing; NTSC and dirty mixing; and bidirectional Syphon with selection modeled on Rack audio I/O.
 
-The user also requests video → ordinary Rack audio waveform → video conversion with NTSC-like behavior. The [video/audio round-trip requirement](docs/VIDEO-AUDIO-ROUNDTRIP.md) separates proposed slowed composite and real-time coarse raster modes from the high-rate RVX composite path, with explicit bandwidth, timing and information-loss limits (issue #16).
+The user also requests video → ordinary Rack audio waveform → video conversion with NTSC-like behavior. The [preliminary, deferred video/audio round-trip design notes](docs/VIDEO-AUDIO-ROUNDTRIP.md) separate proposed slowed composite and real-time coarse raster modes from the high-rate RVX composite path, with explicit bandwidth, timing and information-loss limits for issue #16; they do not authorize implementation. The sequence before coding is: finish prototype #13; settle the shared contracts in #3; establish the Syphon boundary in #5; complete #7's NTSC specification and place the waveform work in its implementation sequence; use #9 to confirm release placement and obtain coding approval; then implement #16. Memory Palace #6 can coordinate optional later feedback integration, but is not a prerequisite for the feedforward path.
 
 Outstanding planning work includes target Mac/Rack details, first-release control/port sheets, reference revisions and fidelity criteria, and user review of the completed specification. Repository and documentation work does not authorize plugin implementation.
 
