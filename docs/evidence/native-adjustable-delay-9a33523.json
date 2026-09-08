@@ -1,0 +1,124 @@
+{
+  "date": "2026-09-07",
+  "runtimeRevision": "9a33523403997a51a0b14439e9256aa2d5764eca",
+  "exampleRevision": "193ffcdf463cc02a99b413a8d04348b057818ba1",
+  "target": {
+    "chip": "Apple M4",
+    "memoryGiB": 16,
+    "macOS": "26.2",
+    "rack": "Pro 2.6.6 standalone arm64",
+    "format": "720x480 RGBA float, 30000/1001 image ticks/s"
+  },
+  "scope": "Isolated native Rack four-module comparison: Test Image, Frame Delay, direct Monitor, delayed Monitor; three video edges; no audio device, Syphon, external source or feedback. Other Rack processes and development work were present. This is a focused smoke check, not combined stress acceptance.",
+  "fixture": {
+    "path": "examples/RVX-Frame-Delay.vcv",
+    "sha256": "ab13f74fc8c033dc00434ea6c99d8e960a2702985ae0e754c68998ba246605a2",
+    "defaultFrames": 15,
+    "maximumVariant": "Same topology and controls, changing only Frames to 60 in a local validation copy."
+  },
+  "operatorObservations": [
+    {
+      "action": "Open 15-frame moving-ramp example before layout rearrangement",
+      "readout": 15,
+      "directFrame": 801,
+      "delayedFrame": 786
+    },
+    {
+      "action": "Initialize all modules with Rack native keyboard action",
+      "readout": 1,
+      "directFrame": 2654,
+      "delayedFrame": 2653,
+      "source": "default bars"
+    },
+    {
+      "action": "Undo initialization with Rack native keyboard action",
+      "readout": 15,
+      "directFrame": 4567,
+      "delayedFrame": 4552,
+      "source": "moving ramp restored"
+    },
+    {
+      "action": "Open count60 local variant with readable layout",
+      "readout": 60,
+      "directFrame": 731,
+      "delayedFrame": 671
+    },
+    {
+      "action": "Restore final packaged example; title shows unmodified patch",
+      "readout": 15,
+      "directFrame": 61,
+      "delayedFrame": 46
+    }
+  ],
+  "operatorObservationLimits": "Counters and readouts were visually read from native app screenshots in the task; screenshots are not committed measurement artifacts. Monitor widgets load completed displays independently: an earlier count60 screenshot showed direct62/delayed3, a 59-frame visible difference. UI snapshots are not an atomic timing oracle. Exact capture-tick age is asserted by deterministic core tests. Native knob dragging and context-menu parameter entry were not successfully exercised; actual SDK parameter, JSON and undo/redo paths were independently checked.",
+  "diagnosticSnapshots": {
+    "15frames": {
+      "workerRun": 2,
+      "renderFrames": 6914,
+      "renderDeadlineMisses": 0,
+      "skippedTicks": 0,
+      "lateTickSlots": 0,
+      "p50Ms": 0.9,
+      "p95Ms": 1.2,
+      "p99Ms": 1.55,
+      "lastMs": 0.831,
+      "maxMs": 5.727,
+      "histogramSaturated": 0,
+      "renderErrors": 0,
+      "renderErrorFrames": 0,
+      "frameBytes": 89856000,
+      "nodes": 4,
+      "edges": 3,
+      "adapterErrors": 0,
+      "monitorSequence": 6913,
+      "sourceSequence": 0,
+      "logSeconds": 607.868
+    },
+    "1frame": {
+      "workerRun": 2,
+      "renderFrames": 4512,
+      "renderDeadlineMisses": 0,
+      "skippedTicks": 0,
+      "lateTickSlots": 0,
+      "p50Ms": 0.9,
+      "p95Ms": 1.2,
+      "p99Ms": 1.55,
+      "lastMs": 0.848,
+      "maxMs": 2.471,
+      "histogramSaturated": 0,
+      "renderErrors": 0,
+      "renderErrorFrames": 0,
+      "frameBytes": 12441600,
+      "nodes": 4,
+      "edges": 3,
+      "adapterErrors": 0,
+      "monitorSequence": 4511,
+      "sourceSequence": 0,
+      "logSeconds": 527.711
+    },
+    "60frames": {
+      "workerRun": 4,
+      "renderFrames": 2079,
+      "renderDeadlineMisses": 0,
+      "skippedTicks": 0,
+      "lateTickSlots": 0,
+      "p50Ms": 0.9,
+      "p95Ms": 1.1,
+      "p99Ms": 1.45,
+      "lastMs": 0.844,
+      "maxMs": 3.093,
+      "histogramSaturated": 0,
+      "renderErrors": 0,
+      "renderErrorFrames": 0,
+      "frameBytes": 338688000,
+      "nodes": 4,
+      "edges": 3,
+      "adapterErrors": 0,
+      "monitorSequence": 2078,
+      "sourceSequence": 0,
+      "logSeconds": 1286.556
+    }
+  },
+  "diagnosticLimits": "Snapshots copied only from RVX diagnostic lines. Quantiles and error/deadline counters are cumulative since each worker run started, not separately reset per setting; run2 includes 15 -> Initialize1 -> Undo15. frameBytes is actual unique retained frame and CV storage at that snapshot, not the conservative allocation reservation, process RSS or a leak proof. sourceSequence is an I/O-source metric and remains zero in this internal-generator fixture. Histogram buckets are 0.05ms. No saturated samples in these snapshots.",
+  "privacy": "No raw host log, settings, hardware identifiers, license, screenshot, audio or external source content is included. Existing user-edited patch/process and normal Rack profile were left unchanged."
+}
