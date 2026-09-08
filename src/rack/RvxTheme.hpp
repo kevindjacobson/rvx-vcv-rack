@@ -34,6 +34,16 @@ inline std::string fontPath(bool semibold = false) {
         : "res/fonts/BarlowCondensed-Regular.ttf");
 }
 
+inline std::string editableFontPath() {
+    const std::string candidate = fontPath(false);
+    if (APP && APP->window && !candidate.empty()) {
+        const std::shared_ptr<window::Font> font = APP->window->loadFont(candidate);
+        if (font && font->handle >= 0)
+            return candidate;
+    }
+    return asset::system("res/fonts/DejaVuSans.ttf");
+}
+
 inline void useFont(NVGcontext* vg, bool semibold = false) {
     if (!APP || !APP->window)
         return;
@@ -333,7 +343,9 @@ private:
 };
 
 inline void styleTextField(app::LedDisplayTextField* field) {
-    field->fontPath = fontPath(false);
+    // Rack's stock editable field has no font fallback of its own, so resolve
+    // the packaged face before giving it a path it will use for text/cursors.
+    field->fontPath = editableFontPath();
     field->color = amber();
     field->bgColor = panel();
     field->textOffset = math::Vec(5.f, 1.f);
