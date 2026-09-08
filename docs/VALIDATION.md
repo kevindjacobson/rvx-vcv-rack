@@ -20,7 +20,7 @@ Audio coexistence requires separate baseline and video-stress evidence at the sa
 
 ## Results
 
-The prototype builds and runs in an isolated Rack 2.6.6 test profile. Independent review covers runtime `2a077dd`, which adds bounded native timing statistics to the previously reviewed `ced3bab` signal implementation. The configured native audio/video/Syphon workload below completed, but subsequent review found that its observer cannot prove external-source contribution. The PR remains draft because that transport acceptance, parts of the native lifecycle matrix, physical device reconnect and end-to-end latency remain unverified; Rack-internal audio underrun counters are unavailable. Completed evidence is limited to the scope and revisions below.
+The prototype builds and runs in an isolated Rack 2.6.6 test profile. Independent review covers runtime `2a077dd`, which adds bounded native timing statistics to the previously reviewed `ced3bab` signal implementation. The configured native audio/video/Syphon workload below completed, but subsequent review found that its observer cannot prove external-source contribution. A separate source-bound relay and restart test now provide direct native transport evidence. The PR remains draft because the full combined acceptance, parts of the native lifecycle matrix, physical device reconnect and end-to-end latency remain unverified; Rack-internal audio underrun counters are unavailable. Completed evidence is limited to the scope and revisions below.
 
 | Evidence | Revision / scope | Result |
 |---|---|---|
@@ -72,6 +72,23 @@ The [baseline record](evidence/coreaudio-baseline-native.json) used Core Audio A
 
 Two other Rack processes and development activity remained present during both runs. RSS comprises 476 one-second samples during the later 479.081 seconds, so the sampled maximum is not a kernel high-water mark or a leak proof. Current frame accounting and owned-resource retirement tests remain distinct from host RSS. The original user's edited patch was left running in its own process. Committed evidence omits hardware UIDs, serials and transient process/device IDs.
 
+### Dedicated source-bound native relay
+
+Probe/generator `8d0f3630de5774ccdff95820d862a811c6ba0fe8` adds explicit observation and verification modes. Observation makes no transport assertion. Verification requires the exact output application/name and a freshly generated 64-bit nonce plus advancing frame sequence in protected header blocks and 48 body sentinel pixels. This binds the source and sampled pattern content; it is not full-frame pixel equality. A bounded startup phase ends only when that source content arrives; the measured interval then checks content, identity, cadence and freshness. The relay fixture contains one Video I/O → unity Signal Processor → Monitor and the same I/O publisher, with no internal generator, audio or feedback to mask missing input.
+
+Native Rack, still running runtime `2a077dd`, produced these [six recorded trials](evidence/native-source-bound-relay-8d0f363.json):
+
+| Case | Result |
+|---|---|
+| First relay | Passed 30.0046 measured seconds: 900 content/nonce-valid frames, 899 hash changes, 29.976 FPS, no content errors, repeats or skipped source sequences |
+| Replacement source process | Passed 30.0016 measured seconds: 900 valid frames, 899 changes, 29.9839 FPS, no content errors, repeats or skipped source sequences; the patch remained loaded and the fresh source used the same application/name with a new nonce |
+| Wrong source name | Correctly failed after bounded startup: no valid content, despite 91 completed output frames |
+| Wrong output application | Correctly failed after bounded startup; no matching output was accepted |
+| Short cadence trial | Failed: three repeated source sequences. Its cable action occurred too late to establish route loss, so this is retained as a failed cadence trial |
+| Controlled disconnection | Correctly failed: 382 valid frames before native cable disconnection, then 518 content failures within the 30-second measured interval. Undo restored the relay afterward |
+
+The strict relay check rejects repeated source sequences, requires at least 99% received cadence, less than 1% skipped source sequences, and recent valid content at the end. Those thresholds are stated by the probe and were not changed after a failure. This verifies a known source traversing the native relay and reconnection; it does not retroactively bind source content to the older mixed stress output, measure audiovisual alignment, or establish transformed-image/hardware fidelity. The [native workflow](NATIVE-VALIDATION.md) includes positive and negative reproduction cases.
+
 Reproduction commands from the checkout:
 
 ```sh
@@ -84,4 +101,4 @@ make benchmark
 
 For native Rack testing, build/package, install into a separate user directory with `python3 scripts/install-prototype.py --user-dir /path/to/test-profile`, then launch Rack with `--user /path/to/test-profile` and an included patch. Set `RVX_DIAGNOSTICS=1` for one status line per second. This test profile must have its own valid Rack license if using Rack Pro; no license or test host executable is distributed with RVX. The opt-in [native audio and external Syphon workflow](NATIVE-VALIDATION.md) defines repeatable probes and their measurement limits.
 
-Unverified gates remain explicit: single-cable drag/fan-out and the complete native lifecycle matrix, including window recreation; physical input-device removal/reconnection and measured end-to-end audiovisual latency; source-bound native Syphon path acceptance after the observer defect above. Keyboard disconnect/undo/redo/duplicate/bypass/reset now have the scoped native checks above; a logical device close/reopen during initialization does not prove physical unplug handling. Device-wide CoreAudio baseline/stress and configured native workload observations are now recorded above; zero Rack-internal underruns cannot be inferred from the available counters. Native module cycles and monitorless/minimized publication above are completed evidence, with their tested revisions stated. Independent-process Syphon SDK tests and mock lifecycle tests do not substitute for unrun native scenarios. DAW, Intel, full GPU processing, Memory Palace, NTSC/composite timing and hardware fidelity are outside this prototype's implemented claims.
+Unverified gates remain explicit: single-cable drag/fan-out and the complete native lifecycle matrix, including window recreation; physical input-device removal/reconnection and measured end-to-end audiovisual latency; the full combined audio/video acceptance. Keyboard disconnect/undo/redo/duplicate/bypass/reset and offscreen output now have the scoped native checks above; a logical device close/reopen during initialization does not prove physical unplug handling. Device-wide CoreAudio baseline/stress, configured native workload observations and the separate source-bound relay are now recorded above; zero Rack-internal underruns cannot be inferred from the available counters, and the old mixed stress input contribution remains unproven. Native module cycles and monitorless/minimized publication above are completed evidence, with their tested revisions stated. Independent-process Syphon SDK tests and mock lifecycle tests do not substitute for unrun native scenarios. DAW, Intel, full GPU processing, Memory Palace, NTSC/composite timing and hardware fidelity are outside this prototype's implemented claims.
