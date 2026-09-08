@@ -43,3 +43,21 @@ The source-bound rejection regressions at `6224613` and sanitized evidence at `8
 Issue #18 is a focused follow-on prompted by the user's missing frame-count question while continuing prototype work. The initial #13 contract deliberately required one frame; its historical results remain tied to that runtime. New work uses `issue-18-frame-count` stacked on prototype checkpoint `413a149`, with independent `issue-18-delay-engine` and `issue-18-delay-panel` worktrees. The prototype branch remains a separate reviewable checkpoint; no merge is authorized by this development task.
 
 Read all 13 open issues (#1–#9, #11, #13, #16, #18) and PRs #10/#12/#14/#15/#17 against unchanged main `e46ae395909d0cf023b57dc00fda0ab9c38baaa1`. #2's shared 512 MiB budget and #3's tick/feedback rules constrain the variable history. #6 may later reuse bounded storage, but its timing, capture, freeze and four routings are not implemented by this utility. #4/#5 routing and Syphon boundaries are unchanged. #7/#8/#9 retain broader specification scope. #1/#11 require a focused PR, actual-base reconciliation and fresh independent review. Waveform implementation #16 is explicitly deferred, with PR #17 parked as draft notes; it is not a prerequisite of the prototype, delay utility or shared specifications. Repository remains private and no PR has merged.
+
+
+## Adjustable Frame Delay delivery audit
+
+Draft PR [#19](https://github.com/kevindjacobson/rvx-vcv-rack/pull/19) targets `issue-13-prototype` at `413a14991168cbd6ff69785fef90cfa643ac2030` to keep #18's change focused. Runtime `9a33523` has separate core and Rack reviews; final history-retirement test `193ffcd` passed a fresh review, including paused-observer and cleanup-only mutation cases. Evidence at `2dfc1c7` received a separate fresh review; its wording correction distinguishes current adapter errors from cumulative renderer/deadline counters. Earlier #13 fixed-delay stress is not attributed to the new runtime.
+
+Re-read all 13 open issues (#1–#9, #11, #13, #16, #18), the five existing PR bodies and the new #19 delivery body against unchanged main `e46ae395909d0cf023b57dc00fda0ab9c38baaa1`. The current PR set is #10/#12/#14/#15/#17/#19; #10/#14/#17/#19 are draft, and #12/#15 are ready but unmerged.
+
+| Issues | Final reconciliation |
+|---|---|
+| #1 | Clarified dependent draft PRs may target a prerequisite branch, then must wait for its merge, retarget/reconcile against actual main, re-audit and receive fresh review before readiness/merge. The matching workflow correction is being reviewed in PR #10's worktree; its policy dependency remains open |
+| #2 | Updated the guard's conservative requested-capacity versus actual retained/current-work distinction and separate actual-byte reporting. Native 1/15/60 observations are scoped to the four-node fixture, not earlier mixed stress |
+| #3 | Recorded exact capture-tick ages, one-frame legacy/default, clear/reset/change/bypass/discontinuity semantics and recovery. Progressive image ticks remain distinct from NTSC fields; no audio or Syphon adapter code changed |
+| #13 | Linked the separately implemented #18 follow-on and review/native evidence while preserving #14's historical one-frame scope and all outstanding host/audio/lifecycle/combined gates |
+| #18 | Updated completed core/storage/review/package criteria and linked #19. Kept its first combined interaction criterion unchecked for the outstanding native mouse knob/context-menu check; actual SDK parameter and persistence behavior passed |
+| #4, #5, #6, #7, #8, #9, #11, #16 | Read and unchanged: native routing/I/O scope, Memory Palace fidelity, broader sheets/approval, reuse/review policy and deferred waveform sequencing remain valid |
+
+The core reuses shared immutable frames, graph evaluation, diagnostic accounting and normalization across the renderer and Rack panel. It adds no rendering allocation/wait to the audio callback. README contains installation, quick start and modules only. No acceptance threshold changed. Repository remains private and no merge occurred; #19 cannot bypass its prototype dependency. Native mouse editing and the broader #13 acceptance gaps remain explicit follow-up work.

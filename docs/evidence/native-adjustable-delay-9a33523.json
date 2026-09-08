@@ -119,6 +119,6 @@
       "logSeconds": 1286.556
     }
   },
-  "diagnosticLimits": "Snapshots copied only from RVX diagnostic lines. Quantiles and error/deadline counters are cumulative since each worker run started, not separately reset per setting; run2 includes 15 -> Initialize1 -> Undo15. frameBytes is actual unique retained frame and CV storage at that snapshot, not the conservative allocation reservation, process RSS or a leak proof. sourceSequence is an I/O-source metric and remains zero in this internal-generator fixture. Histogram buckets are 0.05ms. No saturated samples in these snapshots.",
+  "diagnosticLimits": "Snapshots copied only from RVX diagnostic lines. Quantiles, renderer-error counters and deadline counters are cumulative since each worker run started, not separately reset per setting; run2 includes 15 -> Initialize1 -> Undo15. frameBytes is actual unique retained frame and CV storage at that snapshot, not the conservative allocation reservation, process RSS or a leak proof. sourceSequence is an I/O-source metric and remains zero in this internal-generator fixture. Histogram buckets are 0.05ms. No saturated samples in these snapshots. adapterErrors is the current UI graph-scan snapshot, not a cumulative event count.",
   "privacy": "No raw host log, settings, hardware identifiers, license, screenshot, audio or external source content is included. Existing user-edited patch/process and normal Rack profile were left unchanged."
 }

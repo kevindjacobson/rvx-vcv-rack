@@ -114,7 +114,7 @@ A fresh Rack repair review at `9a33523` independently verified reset to one fram
 
 Separate native checks used the four-module direct/delayed moving-ramp example in an isolated Rack profile. The visible count was 15 on load, 1 after Initialize, 15 after Undo, and 60 in a local maximum-count variant. Selected direct/delayed counter pairs were 801/786, 2654/2653, 4567/4552 and 731/671 respectively. The final packaged example was restored at 15 with pair 61/46 and an unmodified title. Widgets fetch displays independently: an earlier maximum-count screenshot showed 62/3, so individual screenshot differences are observations, not atomic frame-age assertions. Exact timing is established by core tests. The user’s edited patch and normal Rack profile remained unchanged.
 
-| Native snapshot setting | Actual retained frame storage | Cumulative render p99 | Cumulative deadline misses / renderer / adapter errors |
+| Native snapshot setting | Actual retained frame storage | Cumulative render p99 | Cumulative deadline misses / renderer errors; current adapter errors |
 |---|---|---|---|
 | 1 after Initialize | 12,441,600 bytes | 1.550 ms | 0 / 0 / 0 |
 | 15 after Undo | 89,856,000 bytes | 1.550 ms | 0 / 0 / 0 |
