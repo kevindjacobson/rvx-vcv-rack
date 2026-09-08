@@ -23,8 +23,13 @@ void check(bool condition, const char* expression, int line) {
 }
 #define CHECK(x) check(static_cast<bool>(x), #x, __LINE__)
 
+bool finiteNear(float actual, float expected, float tolerance) {
+    return std::isfinite(actual) && std::isfinite(expected) && std::isfinite(tolerance) &&
+        tolerance >= 0.f && std::fabs(actual - expected) <= tolerance;
+}
+
 void near(float actual, float expected, float tolerance, int line) {
-    if (std::fabs(actual - expected) > tolerance) {
+    if (!finiteNear(actual, expected, tolerance)) {
         std::cerr << "FAIL line " << line << ": got " << actual << ", expected "
                   << expected << " +/- " << tolerance << '\n';
         ++failures;
@@ -44,6 +49,10 @@ float pixel(const FramePtr& frame, int x, int y, int channel = 0) {
 }
 
 void testTypesDefaultsAndQueue() {
+    CHECK(!finiteNear(std::numeric_limits<float>::quiet_NaN(), 0.f, 0.f));
+    CHECK(!finiteNear(0.f, std::numeric_limits<float>::infinity(), 0.f));
+    CHECK(!finiteNear(0.f, 0.f, std::numeric_limits<float>::infinity()));
+
     CHECK(inputType(Kind::Processor, 0) == PortType::Image);
     CHECK(inputType(Kind::Processor, 2) == PortType::Field);
     CHECK(inputType(Kind::Delay, 1) == PortType::Audio);
@@ -556,6 +565,7 @@ struct BackendState {
     std::string availableSourceName;
     std::string lastPublisherName;
     bool returnFrame = true;
+    bool serverActive = false;
     int receives = 0;
     int publishes = 0;
     bool lastPublishEnabled = false;
@@ -575,6 +585,7 @@ public:
     }
     void publish(const IoSettings& settings, FramePtr frame) override {
         ++state->publishes;
+        state->serverActive = settings.publish;
         state->lastPublishEnabled = settings.publish;
         state->lastPublishHadFrame = frame != nullptr;
         state->lastPublisherName = settings.publisherName;
@@ -716,6 +727,61 @@ void testIoSettingTransitions() {
     io->setIoSettings(settings);
     renderer.render(graph, format, 9, 9.0 / 30.0);
     NEAR(pixel(io->display()->outputs[0], 0, 0), 0.f, 0.f);
+}
+
+void testRejectedGraphPublisherTeardown() {
+    const Format format{720, 480, 30000, 1001};
+    auto state = std::make_shared<BackendState>();
+    Renderer renderer([state] { return std::make_unique<FakeBackend>(state); });
+    auto io = std::make_shared<Node>(Kind::VideoIo);
+    IoSettings settings;
+    settings.publish = true;
+    io->setIoSettings(settings);
+    Graph valid{{io}, {}, 1};
+
+    CHECK(renderer.render(valid, format, 0, 0.0).errors == 0);
+    CHECK(state->serverActive && state->publishes == 1 && state->receives == 1);
+
+    Graph rejected = valid;
+    for (int i = 0; i < 80; ++i)
+        rejected.nodes.push_back(std::make_shared<Node>(Kind::TestImage));
+    const int receivesBeforeRejection = state->receives;
+    const int publishesBeforeRejection = state->publishes;
+    CHECK(renderer.render(rejected, format, 1, 1.0 / 30.0).errors == 1);
+    CHECK(state->serverActive && state->receives == receivesBeforeRejection);
+    CHECK(state->publishes == publishesBeforeRejection);
+    CHECK(!rejected.nodes.back()->display()->outputs[0]);
+
+    settings.publish = false;
+    io->setIoSettings(settings);
+    CHECK(renderer.render(rejected, format, 2, 2.0 / 30.0).errors == 1);
+    CHECK(!state->serverActive && state->receives == receivesBeforeRejection);
+    CHECK(state->publishes == publishesBeforeRejection + 1);
+    CHECK(!state->lastPublishEnabled && !state->lastPublishHadFrame);
+
+    // Repeating a rejected disabled graph does not issue redundant stop calls.
+    CHECK(renderer.render(rejected, format, 3, 3.0 / 30.0).errors == 1);
+    CHECK(state->publishes == publishesBeforeRejection + 1);
+    CHECK(state->receives == receivesBeforeRejection);
+
+    settings.publish = true;
+    io->setIoSettings(settings);
+    CHECK(renderer.render(valid, format, 4, 4.0 / 30.0).errors == 0);
+    CHECK(state->serverActive && state->receives == receivesBeforeRejection + 1);
+    CHECK(state->publishes == publishesBeforeRejection + 2);
+
+    io->bypass.store(true);
+    const int receivesBeforeBypass = state->receives;
+    CHECK(renderer.render(rejected, format, 5, 5.0 / 30.0).errors == 1);
+    CHECK(!state->serverActive && state->receives == receivesBeforeBypass);
+    CHECK(state->publishes == publishesBeforeRejection + 3);
+    CHECK(renderer.render(rejected, format, 6, 6.0 / 30.0).errors == 1);
+    CHECK(state->publishes == publishesBeforeRejection + 3);
+
+    io->bypass.store(false);
+    CHECK(renderer.render(valid, format, 7, 7.0 / 30.0).errors == 0);
+    CHECK(state->serverActive && state->receives == receivesBeforeBypass + 1);
+    CHECK(state->publishes == publishesBeforeRejection + 4);
 }
 
 struct ThreadBackendState {
@@ -886,6 +952,7 @@ int main() {
     testImageNodeBypass();
     testBackendBoundaryAndHold();
     testIoSettingTransitions();
+    testRejectedGraphPublisherTeardown();
     testBackendWorkerLifetime();
     testEngineIndependentClock();
     testWorkerRunIdentifiers();
