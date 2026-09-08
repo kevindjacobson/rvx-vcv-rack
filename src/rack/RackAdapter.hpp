@@ -2,6 +2,7 @@
 
 #include "../plugin.hpp"
 #include "../core/Video.hpp"
+#include "AdapterDiagnostics.hpp"
 #include "PublisherNames.hpp"
 
 #include <condition_variable>
@@ -13,8 +14,9 @@ namespace rackadapter {
 
 class PatchService;
 
-// The process-wide object is only a context index and non-blocking retirement
-// queue. Each Rack Engine* receives an isolated PatchService and video Engine.
+// The process-wide object indexes context services and process-unique UI names,
+// and retires workers without blocking Rack's engine lock. Each Rack Engine*
+// receives an isolated PatchService and video Engine.
 class ServiceRegistry {
 public:
     static ServiceRegistry& instance();
@@ -23,7 +25,10 @@ public:
                                          std::string* automaticPublisherName = NULL);
     void detach(rack::engine::Engine* context, uint64_t nodeKey);
     void observePublisherName(uint64_t nodeKey, const std::string& name);
+    void updatePublisherName(const std::shared_ptr<Node>& node,
+                             std::string* automaticPublisherName);
     bool publisherNameConflict(uint64_t nodeKey);
+    size_t invalidNativeOutputCount(uint64_t nodeKey);
     ~ServiceRegistry();
 
 private:
@@ -34,6 +39,7 @@ private:
 
     std::mutex mutex_;
     std::map<rack::engine::Engine*, std::shared_ptr<PatchService> > services_;
+    std::map<uint64_t, rack::engine::Engine*> nodeContexts_;
     PublisherNameReservations publisherNames_;
     std::vector<std::shared_ptr<PatchService> > retired_;
     std::condition_variable condition_;
@@ -52,12 +58,14 @@ public:
     void hintTopologyDirty() noexcept;
     void syncRackUi();
     EngineStats stats() const;
+    size_t invalidNativeOutputCount(uint64_t nodeKey) const;
 
 private:
     bool sameGraph(const Graph& graph) const;
 
     mutable std::mutex mutex_;
     std::map<uint64_t, std::shared_ptr<Node> > nodes_;
+    NativeCableDiagnostics cableDiagnostics_;
     Graph submitted_;
     Engine engine_;
     std::atomic<bool> topologyDirty_{true};
@@ -86,6 +94,7 @@ public:
     void onBypass(const BypassEvent& e) override;
     void onUnBypass(const UnBypassEvent& e) override;
     void onReset(const ResetEvent& e) override;
+    void fromJson(json_t* rootJ) override;
     json_t* dataToJson() override;
     void dataFromJson(json_t* rootJ) override;
 
@@ -94,14 +103,17 @@ protected:
     virtual void capture(const ProcessArgs& args);
     virtual void appendData(json_t* rootJ) const;
     virtual void readData(json_t* rootJ, int schema);
+    virtual void prepareRestoredState();
     void zeroNativeVideoOutputs() noexcept;
     void incrementTrigger(std::atomic<uint64_t>& counter) noexcept;
+    void publishRestoredState();
 
     Kind kind_;
     std::shared_ptr<Node> node_;
     std::shared_ptr<PatchService> service_;
     rack::engine::Engine* context_ = NULL;
     bool registered_ = false;
+    bool restoringModuleJson_ = false;
     double audioSeconds_ = 0.0;
     uint64_t audioEpoch_ = 0;
     int64_t lastRackFrame_ = -1;

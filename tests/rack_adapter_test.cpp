@@ -1,4 +1,5 @@
 #include "../src/rack/PublisherNames.hpp"
+#include "../src/rack/AdapterDiagnostics.hpp"
 
 #include <cassert>
 #include <iostream>
@@ -27,6 +28,15 @@ int main() {
     // Deletion releases a saved automatic identity for reuse.
     names.release(1);
     assert(names.reserve(7, "RVX 2", true) == "RVX 2");
+
+    rvx::rackadapter::NativeCableDiagnostics cables;
+    assert(cables.replaceInvalidOutputs({{11, 1}}));
+    assert(cables.invalidOutputCount(11) == 1);
+    assert(!cables.replaceInvalidOutputs({{11, 1}}));
+    assert(cables.replaceInvalidOutputs({{11, 2}}));
+    assert(cables.invalidOutputCount(11) == 2);
+    assert(cables.replaceInvalidOutputs({}));
+    assert(cables.invalidOutputCount(11) == 0);
 
     std::cout << "rack adapter publisher reservations passed\n";
     return 0;

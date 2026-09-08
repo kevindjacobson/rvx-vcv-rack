@@ -239,6 +239,28 @@ struct VideoIoModule : Module {
             defaultPublisherName = requestedDefault;
     }
 
+    void prepareRestoredState() override {
+        if (!registered_)
+            return;
+        IoSettings io = node_->ioSettings();
+        if (restoredDefaultPublisher && publisherOwnerModuleId >= 0
+            && publisherOwnerModuleId != id) {
+            defaultPublisherName = "RVX";
+            io.publisherName = defaultPublisherName;
+            node_->setIoSettings(io);
+        }
+        else if (restoredDefaultPublisher) {
+            defaultPublisherName = io.publisherName;
+        }
+        publisherOwnerModuleId = id;
+        const bool automatic = io.publisherName == defaultPublisherName;
+        std::string requestedDefault = io.publisherName;
+        ServiceRegistry::instance().updatePublisherName(
+            node_, automatic ? &requestedDefault : NULL);
+        if (automatic)
+            defaultPublisherName = requestedDefault;
+    }
+
     void appendData(json_t* rootJ) const override {
         const IoSettings io = node_->ioSettings();
         json_object_set_new(rootJ, "sourceId", json_string(io.sourceId.c_str()));
@@ -486,7 +508,9 @@ struct StatusText : widget::Widget {
         std::shared_ptr<Node> n = node.lock();
         std::shared_ptr<const NodeDisplay> display = n ? n->display() : std::shared_ptr<const NodeDisplay>();
         std::string status = display ? display->status : "Starting video worker";
-        if (n && n->kind == Kind::VideoIo
+        if (n && ServiceRegistry::instance().invalidNativeOutputCount(n->key) > 0)
+            status = "Invalid cable: video output is 0 V";
+        else if (n && n->kind == Kind::VideoIo
             && ServiceRegistry::instance().publisherNameConflict(n->key))
             status = "Publisher name already in use";
         if (status.empty()) status = "Ready";
@@ -522,6 +546,11 @@ struct TestImageWidget : ModuleWidget {
         addScrews(this, box.size.x);
         addParam(createParamCentered<RoundBlackSnapKnob>(pos(16.f, 33.f), module, TestImageModule::PATTERN_PARAM));
         addParam(createParamCentered<RoundBlackKnob>(pos(45.f, 33.f), module, TestImageModule::PHASE_SPEED_PARAM));
+        StatusText* status = new StatusText;
+        status->box.pos = pos(6.f, 49.f);
+        status->box.size = pos(49.f, 18.f);
+        if (module) status->node = module->node();
+        addChild(status);
         addVideoOutput(pos(17.f, 101.f), TestImageModule::IMAGE_OUTPUT, PortType::Image);
         addVideoOutput(pos(44.f, 101.f), TestImageModule::FIELD_OUTPUT, PortType::Field);
     }

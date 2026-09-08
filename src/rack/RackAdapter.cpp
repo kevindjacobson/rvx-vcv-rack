@@ -75,6 +75,7 @@ std::shared_ptr<PatchService> ServiceRegistry::attach(
         created = true;
     }
     service->addNode(node);
+    nodeContexts_[node->key] = context;
     if (created)
         service->start();
     return service;
@@ -83,6 +84,7 @@ std::shared_ptr<PatchService> ServiceRegistry::attach(
 void ServiceRegistry::detach(::rack::engine::Engine* context, uint64_t nodeKey) {
     std::lock_guard<std::mutex> lock(mutex_);
     publisherNames_.release(nodeKey);
+    nodeContexts_.erase(nodeKey);
     if (!context)
         return;
     std::map<::rack::engine::Engine*, std::shared_ptr<PatchService> >::iterator it = services_.find(context);
@@ -101,9 +103,41 @@ void ServiceRegistry::observePublisherName(uint64_t nodeKey, const std::string& 
     publisherNames_.observe(nodeKey, name);
 }
 
+void ServiceRegistry::updatePublisherName(const std::shared_ptr<Node>& node,
+                                          std::string* automaticPublisherName) {
+    if (!node || node->kind != Kind::VideoIo)
+        return;
+    std::lock_guard<std::mutex> lock(mutex_);
+    IoSettings io = node->ioSettings();
+    const bool automatic = automaticPublisherName != NULL;
+    const std::string preferred = automatic ? *automaticPublisherName : io.publisherName;
+    const std::string selected = publisherNames_.reserve(node->key, preferred, automatic);
+    if (automatic) {
+        io.publisherName = selected;
+        node->setIoSettings(io);
+        *automaticPublisherName = selected;
+    }
+}
+
 bool ServiceRegistry::publisherNameConflict(uint64_t nodeKey) {
     std::lock_guard<std::mutex> lock(mutex_);
     return publisherNames_.hasCollision(nodeKey);
+}
+
+size_t ServiceRegistry::invalidNativeOutputCount(uint64_t nodeKey) {
+    std::shared_ptr<PatchService> service;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::map<uint64_t, ::rack::engine::Engine*>::const_iterator context = nodeContexts_.find(nodeKey);
+        if (context == nodeContexts_.end())
+            return 0;
+        std::map<::rack::engine::Engine*, std::shared_ptr<PatchService> >::const_iterator found =
+            services_.find(context->second);
+        if (found == services_.end())
+            return 0;
+        service = found->second;
+    }
+    return service->invalidNativeOutputCount(nodeKey);
 }
 
 void ServiceRegistry::reap() {
@@ -207,6 +241,7 @@ void PatchService::syncRackUi() {
     const std::vector<::rack::app::CableWidget*> cables = APP->scene->rack->getCompleteCables();
     graph.connections.reserve(cables.size());
     size_t adapterErrors = 0;
+    std::map<uint64_t, size_t> invalidNativeOutputs;
     for (size_t i = 0; i < cables.size(); ++i) {
         ::rack::app::CableWidget* cable = cables[i];
         if (!cable || !cable->inputPort || !cable->outputPort)
@@ -238,30 +273,35 @@ void PatchService::syncRackUi() {
         }
         else if (output) {
             ++adapterErrors;
+            ++invalidNativeOutputs[output->nodeKey()];
         }
         // A suite video output patched into a stock Rack input has no video
         // consumer. Module::process() still drives the native voltage to zero.
     }
     std::sort(graph.connections.begin(), graph.connections.end(), connectionLess);
 
-    bool changed = false;
+    bool graphChanged = false;
+    bool diagnosticsChanged = false;
+    uint64_t revision = 0;
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        changed = !sameGraph(graph);
-        if (changed) {
-            graph.revision = nextRevision_++;
+        graphChanged = !sameGraph(graph);
+        diagnosticsChanged = cableDiagnostics_.replaceInvalidOutputs(invalidNativeOutputs);
+        adapterErrors_ = adapterErrors;
+        if (graphChanged || diagnosticsChanged)
+            revision = nextRevision_++;
+        if (graphChanged) {
+            graph.revision = revision;
             submitted_ = graph;
-            adapterErrors_ = adapterErrors;
         }
         topologyDirty_.store(false, std::memory_order_release);
     }
-    if (changed) {
+    if (graphChanged)
         engine_.submit(graph);
-        if (diagnostics_) {
-            INFO("RVX adapter revision=%llu nodes=%zu edges=%zu adapterErrors=%zu",
-                static_cast<unsigned long long>(graph.revision), graph.nodes.size(),
-                graph.connections.size(), adapterErrors);
-        }
+    if ((graphChanged || diagnosticsChanged) && diagnostics_) {
+        INFO("RVX adapter revision=%llu nodes=%zu edges=%zu adapterErrors=%zu",
+            static_cast<unsigned long long>(revision), graph.nodes.size(),
+            graph.connections.size(), adapterErrors);
     }
 
     if (diagnostics_ && (lastDiagnosticsTime_ < 0.0 || frameTime - lastDiagnosticsTime_ >= 1.0)) {
@@ -289,6 +329,11 @@ void PatchService::syncRackUi() {
 
 EngineStats PatchService::stats() const {
     return engine_.stats();
+}
+
+size_t PatchService::invalidNativeOutputCount(uint64_t nodeKey) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return cableDiagnostics_.invalidOutputCount(nodeKey);
 }
 
 Module::Module(Kind kind)
@@ -409,6 +454,20 @@ void Module::onReset(const ResetEvent& e) {
     lastRackFrame_ = -1;
 }
 
+void Module::fromJson(json_t* rootJ) {
+    restoringModuleJson_ = true;
+    try {
+        ::rack::engine::Module::fromJson(rootJ);
+    }
+    catch (...) {
+        restoringModuleJson_ = false;
+        throw;
+    }
+    restoringModuleJson_ = false;
+    prepareRestoredState();
+    publishRestoredState();
+}
+
 json_t* Module::dataToJson() {
     json_t* root = json_object();
     json_object_set_new(root, "rvxSchema", json_integer(1));
@@ -422,6 +481,16 @@ void Module::dataFromJson(json_t* rootJ) {
     if (schemaJ && json_is_integer(schemaJ))
         schema = static_cast<int>(json_integer_value(schemaJ));
     readData(rootJ, schema);
+    if (!restoringModuleJson_) {
+        prepareRestoredState();
+        publishRestoredState();
+    }
+}
+
+void Module::publishRestoredState() {
+    for (size_t i = 0; i < params.size() && i < node_->params.size(); ++i)
+        node_->params[i].store(params[i].getValue(), std::memory_order_relaxed);
+    node_->bypass.store(isBypassed(), std::memory_order_release);
     if (kind_ == Kind::CvBridge)
         ++audioEpoch_;
     lastRackFrame_ = -1;
@@ -435,6 +504,9 @@ void Module::appendData(json_t* rootJ) const {
 void Module::readData(json_t* rootJ, int schema) {
     (void) rootJ;
     (void) schema;
+}
+
+void Module::prepareRestoredState() {
 }
 
 VideoPort::VideoPort() {
