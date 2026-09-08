@@ -119,6 +119,7 @@ int main() {
         auto source = std::make_shared<Node>(Kind::TestImage);
         auto processor = std::make_shared<Node>(Kind::Processor);
         auto delay = std::make_shared<Node>(Kind::Delay);
+        delay->params[kDelayFramesParam].store(static_cast<float>(1 + cycle % kMaxDelayFrames));
         auto monitor = std::make_shared<Node>(Kind::Monitor);
         auto io = std::make_shared<Node>(Kind::VideoIo);
         IoSettings ioSettings;
@@ -170,9 +171,35 @@ int main() {
         }
     }
 
+    // Warm the maximum history, then prove graph retirement releases frames that are owned only
+    // by the renderer's hidden delay state rather than by the current NodeDisplay generation.
+    auto historySource = std::make_shared<Node>(Kind::TestImage);
+    auto historyDelay = std::make_shared<Node>(Kind::Delay);
+    auto historyMonitor = std::make_shared<Node>(Kind::Monitor);
+    historyDelay->params[kDelayFramesParam].store(static_cast<float>(kMaxDelayFrames));
+    const uint64_t historyStart = engine.stats().ticks;
+    engine.submit(Graph{{historySource, historyDelay, historyMonitor},
+                        {connect(historySource, 0, historyDelay, 0),
+                         connect(historyDelay, 0, historyMonitor, 0)}, cycles + 1});
+    if (!waitUntil([&] {
+            return engine.stats().ticks >= historyStart + kMaxDelayFrames + 2 &&
+                   historyDelay->display() && historyDelay->display()->outputs[0];
+        }))
+        return fail("maximum delay history did not warm");
+    std::weak_ptr<const Frame> retiredHistoryFrame = historyDelay->display()->outputs[0];
+    engine.submit(Graph{});
+    const uint64_t historyRetirement = engine.stats().ticks;
+    historySource.reset();
+    historyDelay.reset();
+    historyMonitor.reset();
+    if (!waitUntil([&] { return engine.stats().ticks >= historyRetirement + 2; }))
+        return fail("worker did not cross maximum-history retirement boundary");
+    if (!waitUntil([&] { return retiredHistoryFrame.expired(); }))
+        return fail("maximum delay history remained owned after graph retirement");
+
     // Leave one backend live so stop(), rather than graph replacement, must release it.
     auto finalIo = std::make_shared<Node>(Kind::VideoIo);
-    engine.submit(Graph{{finalIo}, {}, cycles + 1});
+    engine.submit(Graph{{finalIo}, {}, cycles + 2});
     if (!waitUntil([&] {
             return counts->constructed.load(std::memory_order_acquire) == cycles + 1;
         }))

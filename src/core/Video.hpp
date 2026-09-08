@@ -21,6 +21,14 @@ struct Frame {
 using FramePtr = std::shared_ptr<const Frame>;
 enum class PortType { None, Audio, Field, Image };
 enum class Kind { TestImage, Processor, CvBridge, Delay, Monitor, VideoIo };
+inline constexpr int kDelayClearParam = 0;
+inline constexpr int kDelayFramesParam = 1;
+inline constexpr int kMinDelayFrames = 1;
+inline constexpr int kMaxDelayFrames = 60;
+inline constexpr int kDefaultDelayFrames = 1;
+// Shared by the renderer and Rack adapter so automation, display and storage use
+// one finite, snapped range. Non-finite values restore the legacy one-frame default.
+int normalizedDelayFrames(float value) noexcept;
 // Fixed port indices are part of the prototype patch schema.
 // TestImage: out 0 image, 1 field. Processor: in 0/1 image, 2 field; out 0 image, 1 field.
 // CvBridge: in 0 CV, 1 audio, 2 trigger; out 0 field. Delay: in 0 image, 1 clear gate; out 0 image.

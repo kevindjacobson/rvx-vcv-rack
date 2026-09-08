@@ -43,6 +43,32 @@ float pixel(const FramePtr& frame, int x, int y, int channel = 0) {
     return frame->pixels[(static_cast<size_t>(y) * frame->width + x) * frame->channels + channel];
 }
 
+class TickValueBackend : public VideoBackend {
+public:
+    std::vector<VideoSource> sources() override { return {}; }
+    FramePtr receive(const IoSettings&, const Format& format, uint64_t tick, double seconds) override {
+        auto frame = std::make_shared<Frame>();
+        frame->width = format.width;
+        frame->height = format.height;
+        frame->channels = 4;
+        frame->sequence = 1000000 - tick; // Delay age must not depend on source metadata.
+        frame->seconds = seconds;
+        frame->pixels.resize(static_cast<size_t>(format.width) * format.height * 4);
+        for (size_t p = 0; p < frame->pixels.size(); p += 4) {
+            frame->pixels[p] = frame->pixels[p + 1] = frame->pixels[p + 2] =
+                static_cast<float>(tick + 1);
+            frame->pixels[p + 3] = 1.f;
+        }
+        return frame;
+    }
+    void publish(const IoSettings&, FramePtr) override {}
+    std::string status() const override { return "tick source"; }
+};
+
+Graph delayGraph(const std::shared_ptr<Node>& source, const std::shared_ptr<Node>& delay) {
+    return {{delay, source}, {connect(source, 0, delay, 0)}, 1};
+}
+
 void testTypesDefaultsAndQueue() {
     CHECK(inputType(Kind::Processor, 0) == PortType::Image);
     CHECK(inputType(Kind::Processor, 2) == PortType::Field);
@@ -53,9 +79,19 @@ void testTypesDefaultsAndQueue() {
 
     Node processor(Kind::Processor);
     Node bridge(Kind::CvBridge);
+    Node delay(Kind::Delay);
     NEAR(processor.params[0].load(), 1.f, 0.f);
     NEAR(processor.params[1].load(), 0.f, 0.f);
     NEAR(bridge.params[1].load(), 0.1f, 0.f);
+    NEAR(delay.params[kDelayFramesParam].load(), static_cast<float>(kDefaultDelayFrames), 0.f);
+    CHECK(kDelayClearParam == 0 && kDelayFramesParam == 1);
+    CHECK(normalizedDelayFrames(-100.f) == 1);
+    CHECK(normalizedDelayFrames(1.49f) == 1);
+    CHECK(normalizedDelayFrames(1.5f) == 2);
+    CHECK(normalizedDelayFrames(59.6f) == 60);
+    CHECK(normalizedDelayFrames(100.f) == 60);
+    CHECK(normalizedDelayFrames(std::numeric_limits<float>::infinity()) == 1);
+    CHECK(normalizedDelayFrames(std::numeric_limits<float>::quiet_NaN()) == 1);
     CHECK(processor.key != 0 && bridge.key > processor.key);
 
     SpscQueue<int, 4> queue;
@@ -253,6 +289,10 @@ void testFormatChangeClearsRasterState() {
     for (float value : delay->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
     renderer.render(graph, Format{4, 1, 30, 1}, 3, 3.0 / 30.0);
     NEAR(pixel(delay->display()->outputs[0], 3, 0, 0), 1.f, 0.f);
+    renderer.render(graph, Format{4, 1, 60, 1}, 4, 4.0 / 60.0);
+    for (float value : delay->display()->outputs[0]->pixels) NEAR(value, 0.f, 0.f);
+    renderer.render(graph, Format{4, 1, 60, 1}, 5, 5.0 / 60.0);
+    NEAR(pixel(delay->display()->outputs[0], 3, 0, 0), 1.f, 0.f);
 }
 
 void testDelayReadCommitClearAndCleanup() {
@@ -292,6 +332,207 @@ void testDelayReadCommitClearAndCleanup() {
         renderer.render(graph, format, 8 + cycle * 2, 8 + cycle * 2);
         NEAR(pixel(delay->display()->outputs[0], 0, 0, 0), 0.f, 0.f);
     }
+}
+
+void testVariableDelayExactAgesAndChanges() {
+    const Format format{1, 1, 30, 1};
+    for (int age : {1, 2, 30, 60}) {
+        auto source = std::make_shared<Node>(Kind::VideoIo);
+        auto delay = std::make_shared<Node>(Kind::Delay);
+        delay->params[kDelayFramesParam].store(static_cast<float>(age));
+        Renderer renderer([] { return std::make_unique<TickValueBackend>(); });
+        const Graph graph = delayGraph(source, delay);
+        for (int tick = 0; tick < age; ++tick) {
+            const auto report = renderer.render(graph, format, tick, tick / 30.0);
+            CHECK(report.errors == 0);
+            NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+            NEAR(pixel(delay->display()->outputs[0], 0, 0, 3), 0.f, 0.f);
+        }
+        renderer.render(graph, format, age, age / 30.0);
+        NEAR(pixel(delay->display()->outputs[0], 0, 0), 1.f, 0.f);
+        CHECK(delay->display()->outputs[0]->sequence == 0);
+        renderer.render(graph, format, age + 1, (age + 1) / 30.0);
+        NEAR(pixel(delay->display()->outputs[0], 0, 0), 2.f, 0.f);
+        CHECK(delay->display()->outputs[0]->sequence == 1);
+    }
+
+    auto source = std::make_shared<Node>(Kind::VideoIo);
+    auto delay = std::make_shared<Node>(Kind::Delay);
+    delay->params[kDelayFramesParam].store(2.f);
+    Renderer renderer([] { return std::make_unique<TickValueBackend>(); });
+    const Graph graph = delayGraph(source, delay);
+    for (uint64_t tick = 0; tick <= 2; ++tick)
+        renderer.render(graph, format, tick, tick / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 1.f, 0.f);
+
+    delay->params[kDelayFramesParam].store(4.f);
+    renderer.render(graph, format, 3, .1);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    CHECK(delay->display()->status.find("waiting for history") != std::string::npos);
+    renderer.render(graph, format, 4, 4.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    renderer.render(graph, format, 5, 5.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 2.f, 0.f); // tick 1 was still retained
+
+    delay->params[kDelayFramesParam].store(1.f);
+    renderer.render(graph, format, 6, .2);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 6.f, 0.f);
+    delay->params[kDelayFramesParam].store(4.f);
+    renderer.render(graph, format, 7, 7.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f); // shrink released tick 3
+}
+
+void testVariableDelayClearBypassAndDiscontinuities() {
+    const Format format{1, 1, 30, 1};
+    auto source = std::make_shared<Node>(Kind::VideoIo);
+    auto delay = std::make_shared<Node>(Kind::Delay);
+    delay->params[kDelayFramesParam].store(2.f);
+    Renderer renderer([] { return std::make_unique<TickValueBackend>(); });
+    const Graph graph = delayGraph(source, delay);
+    for (uint64_t tick = 0; tick <= 2; ++tick)
+        renderer.render(graph, format, tick, tick / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 1.f, 0.f);
+
+    delay->params[kDelayClearParam].store(1.f);
+    renderer.render(graph, format, 3, .1);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    renderer.render(graph, format, 4, 4.0 / 30.0); // held button does not clear again
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    renderer.render(graph, format, 5, 5.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 4.f, 0.f);
+    delay->params[kDelayClearParam].store(0.f);
+    renderer.render(graph, format, 6, .2);
+    delay->params[kDelayClearParam].store(1.f);
+    renderer.render(graph, format, 7, 7.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    delay->params[kDelayClearParam].store(0.f);
+    delay->resets.fetch_add(1);
+    renderer.render(graph, format, 8, 8.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+
+    delay->params[kDelayFramesParam].store(1.f);
+    delay->bypass.store(true);
+    renderer.render(graph, format, 9, .3);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 10.f, 0.f);
+    CHECK(delay->display()->outputs[0]->sequence == 9);
+    delay->bypass.store(false);
+    renderer.render(graph, format, 10, 10.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    renderer.render(graph, format, 11, 11.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 11.f, 0.f);
+
+    // A forward scheduling gap is represented as a gap, never a stale relabeled frame.
+    renderer.render(graph, format, 13, 13.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    renderer.render(graph, format, 14, 14.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 14.f, 0.f);
+
+    // Repeated or backward ticks invalidate the capture epoch before reading it.
+    renderer.render(graph, format, 14, 14.0 / 30.0);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+    renderer.render(graph, format, 12, .4);
+    NEAR(pixel(delay->display()->outputs[0], 0, 0), 0.f, 0.f);
+
+    auto missing = std::make_shared<Node>(Kind::Delay);
+    missing->params[kDelayFramesParam].store(2.f);
+    Renderer missingRenderer;
+    Graph missingGraph{{missing}, {}, 2};
+    for (uint64_t tick = 0; tick < 4; ++tick) {
+        missingRenderer.render(missingGraph, format, tick, tick / 30.0);
+        NEAR(pixel(missing->display()->outputs[0], 0, 0), 0.f, 0.f);
+        NEAR(pixel(missing->display()->outputs[0], 0, 0, 3), 0.f, 0.f);
+    }
+
+    auto nonFiniteSource = std::make_shared<Node>(Kind::VideoIo);
+    auto nonFiniteDelay = std::make_shared<Node>(Kind::Delay);
+    nonFiniteDelay->params[kDelayFramesParam].store(
+        std::numeric_limits<float>::quiet_NaN());
+    Renderer nonFiniteRenderer([] { return std::make_unique<TickValueBackend>(); });
+    const Graph nonFiniteGraph = delayGraph(nonFiniteSource, nonFiniteDelay);
+    auto report = nonFiniteRenderer.render(nonFiniteGraph, format, 0, 0);
+    CHECK(report.errors == 1);
+    CHECK(nonFiniteDelay->display()->status.find("non-finite parameter") != std::string::npos);
+    report = nonFiniteRenderer.render(nonFiniteGraph, format, 1, 1.0 / 30.0);
+    CHECK(report.errors == 1);
+    NEAR(pixel(nonFiniteDelay->display()->outputs[0], 0, 0), 1.f, 0.f);
+}
+
+void testVariableDelayReadBeforeCommitChain() {
+    const Format format{1, 1, 30, 1};
+    auto source = std::make_shared<Node>(Kind::VideoIo);
+    auto first = std::make_shared<Node>(Kind::Delay);
+    auto second = std::make_shared<Node>(Kind::Delay);
+    Renderer renderer([] { return std::make_unique<TickValueBackend>(); });
+    // Reverse node order ensures correctness does not depend on one delay being visited first.
+    Graph graph{{second, first, source},
+                {connect(source, 0, first, 0), connect(first, 0, second, 0)}, 1};
+    renderer.render(graph, format, 0, 0);
+    renderer.render(graph, format, 1, 1.0 / 30.0);
+    NEAR(pixel(first->display()->outputs[0], 0, 0), 1.f, 0.f);
+    NEAR(pixel(second->display()->outputs[0], 0, 0), 0.f, 0.f);
+    renderer.render(graph, format, 2, 2.0 / 30.0);
+    NEAR(pixel(first->display()->outputs[0], 0, 0), 2.f, 0.f);
+    NEAR(pixel(second->display()->outputs[0], 0, 0), 1.f, 0.f);
+    CHECK(second->display()->outputs[0]->sequence == 0);
+}
+
+void testVariableDelayMemoryBudgetAndUniqueReporting() {
+    const Format tiny{1, 1, 30, 1};
+    auto source = std::make_shared<Node>(Kind::TestImage);
+    auto first = std::make_shared<Node>(Kind::Delay);
+    auto second = std::make_shared<Node>(Kind::Delay);
+    first->params[kDelayFramesParam].store(2.f);
+    second->params[kDelayFramesParam].store(2.f);
+    Renderer oneRenderer;
+    auto one = oneRenderer.render(
+        Graph{{source, first}, {connect(source, 0, first, 0)}, 1}, tiny, 0, 0);
+    Renderer twoRenderer;
+    auto two = twoRenderer.render(
+        Graph{{source, first, second},
+              {connect(source, 0, first, 0), connect(source, 0, second, 0)}, 2}, tiny, 0, 0);
+    CHECK(one.errors == 0 && two.errors == 0);
+    CHECK(two.frameBytes == one.frameBytes); // shared output/history pointers are charged once
+
+    const Format boundary{1024, 1024, 30, 1};
+    auto largeSource = std::make_shared<Node>(Kind::TestImage);
+    auto largeDelay = std::make_shared<Node>(Kind::Delay);
+    Graph largeGraph{{largeSource, largeDelay}, {connect(largeSource, 0, largeDelay, 0)}, 3};
+    Renderer boundaryRenderer;
+    largeDelay->params[kDelayFramesParam].store(26.f);
+    auto report = boundaryRenderer.render(largeGraph, boundary, 0, 0);
+    CHECK(report.errors == 0);
+    largeDelay->params[kDelayFramesParam].store(27.f);
+    report = boundaryRenderer.render(largeGraph, boundary, 1, 1.0 / 30.0);
+    CHECK(report.errors == 1);
+    CHECK(report.frameBytes == 16ull * 1024ull * 1024ull); // actual retained tick-0 image
+    CHECK(largeDelay->display()->status.find("512 MiB") != std::string::npos);
+    largeDelay->params[kDelayFramesParam].store(1.f);
+    report = boundaryRenderer.render(largeGraph, boundary, 2, 2.0 / 30.0);
+    CHECK(report.errors == 0);
+    CHECK(largeDelay->display()->status.find("512 MiB") == std::string::npos);
+
+    auto otherDelay = std::make_shared<Node>(Kind::Delay);
+    largeDelay->params[kDelayFramesParam].store(13.f);
+    otherDelay->params[kDelayFramesParam].store(13.f);
+    Graph multiple{{largeSource, largeDelay, otherDelay},
+                   {connect(largeSource, 0, largeDelay, 0),
+                    connect(largeSource, 0, otherDelay, 0)}, 4};
+    report = boundaryRenderer.render(multiple, boundary, 3, .1);
+    CHECK(report.errors == 0);
+    largeDelay->params[kDelayFramesParam].store(14.f);
+    otherDelay->params[kDelayFramesParam].store(14.f);
+    report = boundaryRenderer.render(multiple, boundary, 4, 4.0 / 30.0);
+    CHECK(report.errors == 1);
+    boundaryRenderer.render(Graph{{largeSource}, {}, 5}, boundary, 5, 5.0 / 30.0);
+    report = boundaryRenderer.render(largeGraph, boundary, 6, .2);
+    CHECK(report.errors == 0); // removal reclaimed the other delay's reservation and history
+
+    std::vector<std::shared_ptr<Node>> bridges;
+    for (int i = 0; i < 400; ++i) bridges.push_back(std::make_shared<Node>(Kind::CvBridge));
+    Renderer bridgeBudgetRenderer;
+    report = bridgeBudgetRenderer.render(Graph{bridges, {}, 6}, tiny, 0, 0);
+    CHECK(report.errors == 1);
+    CHECK(bridges.front()->display()->status.find("512 MiB") != std::string::npos);
 }
 
 void testCvAudioEpochAndTriggers() {
@@ -790,6 +1031,10 @@ int main() {
     testPhaseSpeedAllPatterns();
     testInvalidEdgesFormatsAndCycles();
     testDelayReadCommitClearAndCleanup();
+    testVariableDelayExactAgesAndChanges();
+    testVariableDelayClearBypassAndDiscontinuities();
+    testVariableDelayReadBeforeCommitChain();
+    testVariableDelayMemoryBudgetAndUniqueReporting();
     testFormatChangeClearsRasterState();
     testCvAudioEpochAndTriggers();
     testCvBypassAndAudioOverflow();
