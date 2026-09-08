@@ -79,5 +79,6 @@
       "rvx_coreaudio_probe.cpp": "1d3bd77c6790bea0f454057bb300d75fca0bab44b31b71d748cbed54a9545d10",
       "rvx_syphon_path_probe.mm": "18ad63988053f62b948630923e33d2a5d1d34579c97e55c694189c4f98300567"
     }
-  }
+  },
+  "post_run_review_limit": "The predecessor probe success flag is not accepted as proof of the external-source-to-Rack path. Internal TestImage/VCO can animate output with missing external input; selection used only output server name; three changing frames could pass despite later outage. These counters remain scoped observations, not verified incoming-source contribution or output application identity."
 }
