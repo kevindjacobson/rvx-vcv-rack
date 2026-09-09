@@ -1,0 +1,130 @@
+{
+  "version": "2.6.6",
+  "zoom": 1.5,
+  "gridOffset": [
+    -2,
+    -0.02
+  ],
+  "modules": [
+    {
+      "id": 700,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "params": [
+        {
+          "id": 0,
+          "value": 2.0
+        },
+        {
+          "id": 1,
+          "value": 0.25
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 701,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "params": [],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        28,
+        0
+      ]
+    },
+    {
+      "id": 702,
+      "plugin": "RVX",
+      "model": "VideoRecorder",
+      "version": "2.0.0",
+      "params": [
+        {
+          "id": 0,
+          "value": 1
+        },
+        {
+          "id": 1,
+          "value": 1
+        },
+        {
+          "id": 2,
+          "value": 0.75
+        },
+        {
+          "id": 3,
+          "value": -0.5
+        },
+        {
+          "id": 4,
+          "value": 0
+        },
+        {
+          "id": 5,
+          "value": 0
+        },
+        {
+          "id": 6,
+          "value": 12
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        12,
+        0
+      ]
+    },
+    {
+      "id": 703,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "params": [],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        44,
+        0
+      ]
+    }
+  ],
+  "cables": [
+    {
+      "id": 7000,
+      "outputModuleId": 700,
+      "outputId": 0,
+      "inputModuleId": 701,
+      "inputId": 0,
+      "color": "#4dc9ff"
+    },
+    {
+      "id": 7001,
+      "outputModuleId": 700,
+      "outputId": 0,
+      "inputModuleId": 702,
+      "inputId": 0,
+      "color": "#4dc9ff"
+    },
+    {
+      "id": 7002,
+      "outputModuleId": 702,
+      "outputId": 0,
+      "inputModuleId": 703,
+      "inputId": 0,
+      "color": "#ff5ac2"
+    }
+  ]
+}

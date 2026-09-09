@@ -1,0 +1,59 @@
+{
+  "runtimeRevision": "350524305f331594ba9240958d13c1bd7ca1c54c",
+  "initialInteractionAttemptRevision": "2c98733445872dbc11a6f8dfae8edb3d0132d801",
+  "host": "Rack Pro 2.6.6 standalone arm64; Apple M4; macOS 26.2",
+  "isolatedBundleId": "local.rvx.issue33.recorder-review",
+  "profileSampleRateSetting": 48000,
+  "sourceExampleSha256": "c1be12d97d3e26b768e81096084f786bd243bb4f72a0a9ad51a701c2c4ec47bc",
+  "builtPluginSha256": "d17f57316c79bc4292f206bdfeaad21c955c3c9ffdab00c78e6d9cb331b625fd",
+  "exampleModuleParameterAndCableIdentityComparisonPassed": true,
+  "nativeRecallRecordPlayOffAndConfigurationComparisonPassed": true,
+  "nativeRecordStopScrubPlaybackVerified": false,
+  "artifacts": [
+    {
+      "file": "example-empty-100.jpg",
+      "sha256": "5f2ce0ca27cd4a326d40eff47cf4b14f3440ed8e5d7ecea1845be462644abd1d",
+      "writtenAtUtc": "2026-09-09T22:18:53.319955+00:00"
+    },
+    {
+      "file": "example-empty-150.jpg",
+      "sha256": "75b3a181d7fa408e2209fcd1360ae109468ab43131de890ef8509fb8c01e8ff2",
+      "writtenAtUtc": "2026-09-09T22:18:09.251593+00:00"
+    },
+    {
+      "file": "example-native-saved.json",
+      "sha256": "c4ed7f3aef70245d034f7d59e3c327af32973ef9014fc7a33bac75aae714db50",
+      "writtenAtUtc": "2026-09-09T22:18:42.636954+00:00"
+    },
+    {
+      "file": "example-reloaded-150.jpg",
+      "sha256": "60c6f45b0985678fc653a816731a83e7857ca1cb4e05e545c20599e5f84b7021",
+      "writtenAtUtc": "2026-09-09T22:18:24.567218+00:00"
+    },
+    {
+      "file": "native-session-3505243.log",
+      "sha256": "10d3a0b1378932a77a90f371dba05f1f34eaea0bab45ae47a02dc5dc6244698c",
+      "writtenAtUtc": "2026-09-09T22:20:31.315474+00:00"
+    },
+    {
+      "file": "recall-native-saved.json",
+      "sha256": "2a45a3a05e0776676d60db338d63cb75d0135da7adf11e18d291b615cbc6ae2f",
+      "writtenAtUtc": "2026-09-09T22:19:07.216626+00:00"
+    },
+    {
+      "file": "recall-settings-empty-150.jpg",
+      "sha256": "61553e894946375d5ce4be98bb80b69cf1454dda0fff8d9d6869a4355d729b6a",
+      "writtenAtUtc": "2026-09-09T22:19:03.411692+00:00"
+    },
+    {
+      "file": "recall-settings-input.vcv",
+      "sha256": "a059bd65450bacc42847d1efeec9b11b1003671b4a30482a5b14312ba3c5c8c6",
+      "writtenAtUtc": "2026-09-09T22:15:40.128311+00:00"
+    },
+    {
+      "file": "README.md",
+      "sha256": "e9467dbb353d680fef79b217dd540b0571b3e7300e4a76990fbacee79a322f23",
+      "writtenAtUtc": "2026-09-09T22:20:31.321772+00:00"
+    }
+  ]
+}
