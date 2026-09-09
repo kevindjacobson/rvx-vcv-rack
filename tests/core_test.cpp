@@ -1204,9 +1204,269 @@ void testEngineReportAggregation() {
     CHECK(restarted.renderErrors == restarted.ticks);
     CHECK(restarted.renderErrorFrames == restarted.ticks);
 }
+struct RecorderFixture {
+    Format format{4, 2, 10, 1};
+    Renderer renderer;
+    std::shared_ptr<Node> source = std::make_shared<Node>(Kind::TestImage);
+    std::shared_ptr<Node> recorder = std::make_shared<Node>(Kind::Recorder);
+    Graph graph{{recorder, source}, {connect(source, 0, recorder, 0)}, 1};
+    uint64_t tick = 0;
+    double seconds = 0;
+    RenderReport step(double delta = .1) {
+        const auto result = renderer.render(graph, format, tick++, seconds);
+        seconds += delta;
+        return result;
+    }
+    FramePtr output() const { return recorder->display()->outputs[0]; }
+    std::vector<FramePtr> record(int frames) {
+        recorder->params[kRecorderCapacityParam] = static_cast<float>(frames);
+        recorder->params[kRecorderRecordParam] = 1;
+        std::vector<FramePtr> result;
+        for (int i = 0; i < frames; ++i) {
+            CHECK(step().errors == 0);
+            if (i) CHECK(output() == result.back());
+            result.push_back(source->display()->outputs[0]);
+        }
+        CHECK(recorder->display()->recorderFrames == static_cast<size_t>(frames));
+        CHECK(!recorder->display()->recorderRecording);
+        recorder->params[kRecorderRecordParam] = 0;
+        CHECK(step().errors == 0);
+        CHECK(output() == result.front());
+        return result;
+    }
+};
+
+void testRecorderCaptureAndSeek() {
+    CHECK(inputType(Kind::Recorder, 0) == PortType::Image);
+    CHECK(inputType(Kind::Recorder, 1) == PortType::Audio);
+    CHECK(inputType(Kind::Recorder, 2) == PortType::None);
+    CHECK(outputType(Kind::Recorder, 0) == PortType::Image);
+    CHECK(outputType(Kind::Recorder, 1) == PortType::None);
+    CHECK(normalizedRecorderCapacity(-1) == 1);
+    CHECK(normalizedRecorderCapacity(1.5f) == 2);
+    CHECK(normalizedRecorderCapacity(90) == 60);
+    CHECK(normalizedRecorderCapacity(std::numeric_limits<float>::quiet_NaN()) == 60);
+    RecorderFixture f;
+    CHECK(f.recorder->params[kRecorderCapacityParam] == 60);
+    CHECK(f.recorder->params[kRecorderSpeedParam] == 1);
+    CHECK(f.recorder->params[kRecorderLoopParam] == 1);
+    CHECK(!f.recorder->recorderPositionConnected);
+    auto clip = f.record(5);
+    // Nearest-image ties and values on either side have an independent explicit oracle.
+    for (const auto& sample : std::vector<std::pair<float, size_t>>{
+            {.12499f, 0}, {.125f, 1}, {.12501f, 1}}) {
+        f.recorder->params[kRecorderPositionParam] = sample.first;
+        f.step(); CHECK(f.output() == clip[sample.second]);
+    }
+    const double originalSeconds = clip[4]->seconds;
+    f.recorder->params[kRecorderPositionParam] = 1;
+    f.step(); CHECK(f.output() == clip[4]);
+    CHECK(f.output()->seconds == originalSeconds);
+    f.recorder->params[kRecorderPositionParam] = .5f;
+    f.step(); CHECK(f.output() == clip[2]);
+    CHECK(f.recorder->display()->recorderIndex == 2);
+    f.recorder->recorderPositionConnected = true;
+    for (const auto& sample : std::vector<std::pair<float, size_t>>{
+            {-10, 0}, {0, 0}, {5, 2}, {10, 4}, {20, 4}}) {
+        f.recorder->cvVoltage = sample.first;
+        f.step(); CHECK(f.output() == clip[sample.second]);
+    }
+    f.recorder->cvVoltage = std::numeric_limits<float>::infinity();
+    CHECK(f.step().errors == 1); CHECK(f.output() == clip[0]);
+    f.recorder->recorderPositionConnected = false;
+    f.step(); CHECK(f.output() == clip[2]);
+    // Capacity changes affect future capture, not the retained clip.
+    f.recorder->params[kRecorderCapacityParam] = 1;
+    f.recorder->params[kRecorderPositionParam] = 1;
+    f.step(); CHECK(f.output() == clip[4]);
+    CHECK(f.recorder->display()->recorderFrames == 5);
+    f.recorder->params[kRecorderRecordParam] = 1;
+    f.step();
+    const auto replacement = f.source->display()->outputs[0];
+    CHECK(f.recorder->display()->recorderFrames == 1);
+    f.step(); CHECK(f.output() == replacement);
+    f.step(); CHECK(f.output() == replacement);
+    CHECK(f.recorder->display()->recorderFrames == 1);
+    // Releasing Record early retains exactly the completed captures.
+    f.recorder->params[kRecorderRecordParam] = 0;
+    f.step();
+    f.recorder->params[kRecorderCapacityParam] = 60;
+    f.recorder->params[kRecorderRecordParam] = 1;
+    f.step(); const auto early = f.source->display()->outputs[0];
+    f.recorder->params[kRecorderRecordParam] = 0;
+    f.step(); CHECK(f.output() == early);
+    CHECK(f.recorder->display()->recorderFrames == 1);
+}
+
+void testRecorderTransport() {
+    RecorderFixture f;
+    auto clip = f.record(5);
+    f.recorder->params[kRecorderPlayParam] = 1;
+    f.recorder->params[kRecorderSpeedParam] = .5f;
+    f.step(); CHECK(f.output() == clip[0]); // First Play tick seeks exactly.
+    const size_t forward[] = {1, 1, 2, 2, 3, 3, 4, 4, 0, 0};
+    for (auto expected : forward) { f.step(); CHECK(f.output() == clip[expected]); }
+    f.recorder->params[kRecorderSpeedParam] = 0;
+    f.step(); CHECK(f.output() == clip[0]);
+    f.step(2); CHECK(f.output() == clip[0]);
+    f.recorder->params[kRecorderPositionParam] = 1;
+    f.recorder->params[kRecorderSpeedParam] = -1;
+    f.step(); CHECK(f.output() == clip[4]); // Seek wins over elapsed advance.
+    const size_t reverse[] = {3, 2, 1, 0, 4, 3};
+    for (auto expected : reverse) { f.step(); CHECK(f.output() == clip[expected]); }
+    f.recorder->params[kRecorderLoopParam] = 0;
+    for (int i = 0; i < 8; ++i) f.step();
+    CHECK(f.output() == clip[0]);
+    f.recorder->params[kRecorderSpeedParam] = 4;
+    f.step(); CHECK(f.output() == clip[4]);
+    f.step(); CHECK(f.output() == clip[4]);
+    f.recorder->recorderPositionConnected = true;
+    f.recorder->cvVoltage = 5;
+    f.step(); CHECK(f.output() == clip[2]);
+    f.step(); CHECK(f.output() == clip[2]); // Held CV overrides transport every tick.
+    f.recorder->recorderPositionConnected = false;
+    f.recorder->params[kRecorderPositionParam] = 0;
+    f.step(); CHECK(f.output() == clip[0]);
+    f.recorder->params[kRecorderSpeedParam] = 1;
+    f.tick += 2; f.seconds += .2;
+    f.step(); CHECK(f.output() == clip[3]); // Scheduled skips advance by elapsed time.
+    f.recorder->params[kRecorderPlayParam] = 0;
+    f.step(); CHECK(f.output() == clip[3]);
+    f.step(); CHECK(f.output() == clip[3]);
+}
+
+void testRecorderLifecycleAndFeedback() {
+    RecorderFixture f;
+    auto clip = f.record(3);
+    f.recorder->params[kRecorderPositionParam] = 1;
+    f.step(); CHECK(f.output() == clip[2]);
+    f.recorder->bypass = true;
+    f.step(); CHECK(f.output() == f.source->display()->outputs[0]);
+    CHECK(f.recorder->display()->recorderFrames == 3);
+    f.recorder->bypass = false;
+    f.step(); CHECK(f.output() == clip[2]);
+    f.recorder->params[kRecorderPlayParam] = 1;
+    f.recorder->params[kRecorderPositionParam] = 0;
+    f.step(); CHECK(f.output() == clip[0]);
+    f.step(); CHECK(f.output() == clip[1]);
+    f.recorder->bypass = true;
+    f.step(5); f.step();
+    f.recorder->bypass = false;
+    f.step(); CHECK(f.output() == clip[1]);
+    f.step(); CHECK(f.output() == clip[2]);
+    f.recorder->params[kRecorderRecordParam] = 1;
+    f.recorder->params[kRecorderCapacityParam] = 60;
+    f.step();
+    f.recorder->resets++;
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 0);
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 0);
+    f.recorder->params[kRecorderRecordParam] = 0;
+    f.step();
+    f.recorder->params[kRecorderRecordParam] = 1;
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 1);
+    f.recorder->params[kRecorderClearParam] = 1;
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 0);
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 0);
+    f.recorder->params[kRecorderClearParam] = 0;
+    f.recorder->params[kRecorderRecordParam] = 0;
+    f.step();
+    f.recorder->params[kRecorderRecordParam] = 1;
+    f.step();
+    f.format.width = 3;
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 0);
+    CHECK(f.recorder->display()->status.find("format change") != std::string::npos);
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 0);
+    f.recorder->params[kRecorderRecordParam] = 0; f.step();
+    f.recorder->params[kRecorderRecordParam] = 1; f.step();
+    f.seconds = 0;
+    f.step(); CHECK(f.recorder->display()->recorderFrames == 0);
+    CHECK(f.recorder->display()->status.find("time discontinuity") != std::string::npos);
+
+    RecorderFixture missing;
+    missing.recorder->params[kRecorderRecordParam] = 1;
+    missing.graph.connections.clear();
+    missing.step(); CHECK(missing.recorder->display()->recorderFrames == 0);
+    CHECK(missing.recorder->display()->status.find("missing valid") != std::string::npos);
+    missing.tick += 9; missing.seconds += .9;
+    missing.graph.connections.push_back(connect(missing.source, 0, missing.recorder, 0));
+    missing.step(); CHECK(missing.recorder->display()->recorderFrames == 1);
+    const auto captured = missing.source->display()->outputs[0];
+    missing.graph.connections.clear();
+    missing.step(); CHECK(missing.output() == captured);
+    CHECK(missing.recorder->display()->recorderFrames == 1);
+    missing.graph.connections.push_back(connect(missing.source, 1, missing.recorder, 0));
+    CHECK(missing.step().errors > 0);
+    CHECK(missing.recorder->display()->recorderFrames == 1);
+
+    RecorderFixture feedback;
+    auto seed = feedback.record(2);
+    feedback.graph.connections = {connect(feedback.recorder, 0, feedback.recorder, 0)};
+    feedback.recorder->params[kRecorderRecordParam] = 1;
+    feedback.recorder->params[kRecorderCapacityParam] = 3;
+    CHECK(feedback.step().errors == 0);
+    const auto causalBlack = feedback.output();
+    CHECK(feedback.step().errors == 0); CHECK(feedback.output() == causalBlack);
+    CHECK(feedback.recorder->display()->recorderFrames == 2);
+    feedback.recorder->bypass = true;
+    CHECK(feedback.step().errors > 0);
+    CHECK(feedback.recorder->display()->status.find("zero-delay cycle") != std::string::npos);
+    CHECK(feedback.recorder->display()->recorderFrames == 2);
+    feedback.recorder->bypass = false;
+    CHECK(feedback.step().errors == 0);
+    CHECK(feedback.recorder->display()->recorderFrames == 2); // No stale capture/restart.
+}
+
+void testRecorderRetentionAndBudget() {
+    RecorderFixture f;
+    f.format = {720, 480, 30, 1};
+    auto clip = f.record(2);
+    const size_t image = 720 * 480 * 4 * sizeof(float);
+    const size_t field = image / 4;
+    // Source current image/field plus two retained unique captures.
+    CHECK(f.step().frameBytes == 3 * image + field);
+    auto other = std::make_shared<Node>(Kind::Recorder);
+    f.graph.nodes.push_back(other);
+    f.graph.connections.push_back(connect(f.source, 0, other, 0));
+    other->params[kRecorderCapacityParam] = 60;
+    other->params[kRecorderRecordParam] = 1;
+    f.recorder->params[kRecorderCapacityParam] = 60;
+    f.recorder->params[kRecorderRecordParam] = 1;
+    const auto rejected = f.step();
+    CHECK(rejected.errors == 1);
+    CHECK(rejected.frameBytes == 2 * image);
+    CHECK(f.recorder->display()->recorderFrames == 2); // Failed replacement preserves old clip.
+    CHECK(other->display()->recorderFrames == 0);
+    other->bypass = true;
+    CHECK(f.step().errors == 0); // Rejected rising edge requires rearming.
+    CHECK(f.recorder->display()->recorderFrames == 2);
+    f.recorder->params[kRecorderRecordParam] = 0; f.step();
+    f.recorder->params[kRecorderRecordParam] = 1;
+    CHECK(f.step().errors == 0);
+    CHECK(f.recorder->display()->recorderFrames == 1);
+    f.recorder->params[kRecorderRecordParam] = 0;
+    f.step();
+    // Duplicate keys reject scheduling without double appends or accounting.
+    f.graph.nodes.push_back(f.recorder);
+    CHECK(f.step().errors > 0);
+    CHECK(f.recorder->display()->recorderFrames == 1);
+    f.graph.nodes.pop_back();
+    f.recorder->params[kRecorderClearParam] = 1;
+    CHECK(f.step().errors == 0);
+    CHECK(f.recorder->display()->recorderFrames == 0);
+    CHECK(f.step().frameBytes == 2 * image + field);
+    // A fresh renderer is patch reload: runtime clip storage cannot leak across it.
+    Renderer reloaded;
+    reloaded.render(f.graph, f.format, 0, 0);
+    CHECK(f.recorder->display()->recorderFrames == 0);
+}
+
 } // namespace
 
 int main() {
+    testRecorderCaptureAndSeek();
+    testRecorderTransport();
+    testRecorderLifecycleAndFeedback();
+    testRecorderRetentionAndBudget();
     testTypesDefaultsAndQueue();
     testRenderTimingHistogram();
     testPatternsProcessorAndConversion();

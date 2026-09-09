@@ -214,6 +214,36 @@ int main() {
             return fail("maximum delay history remained owned after graph retirement");
     }
 
+    // Recorder captures may be hidden by another clip position or by bypass. Clear,
+    // retirement and renderer destruction must each release that hidden ownership.
+    for (int release = 0; release < 3; ++release) {
+        auto recorderRenderer = std::make_unique<Renderer>();
+        auto source = std::make_shared<Node>(Kind::TestImage);
+        auto recorder = std::make_shared<Node>(Kind::Recorder);
+        recorder->params[kRecorderRecordParam] = 1;
+        Graph graph{{source, recorder}, {connect(source, 0, recorder, 0)}, cycles + 3};
+        recorderRenderer->render(graph, format, 0, 0);
+        std::weak_ptr<const Frame> hidden = source->display()->outputs[0];
+        for (uint64_t tick = 1; tick < 4; ++tick)
+            recorderRenderer->render(graph, format, tick, tick / 200.0);
+        recorder->bypass = true;
+        recorderRenderer->render(graph, format, 4, .02);
+        if (hidden.expired() || recorder->display()->recorderFrames != 4)
+            return fail("bypassed recorder lost hidden clip storage");
+        if (release == 0) {
+            recorder->params[kRecorderClearParam] = 1;
+            recorderRenderer->render(graph, format, 5, .025);
+        } else if (release == 1) {
+            graph = Graph{};
+            recorderRenderer->render(graph, format, 5, .025);
+        } else {
+            recorderRenderer.reset();
+        }
+        if (!hidden.expired())
+            return fail("recorder retained hidden frame after release path " +
+                        std::to_string(release));
+    }
+
     // Leave one backend live so stop(), rather than graph replacement, must release it.
     auto finalIo = std::make_shared<Node>(Kind::VideoIo);
     engine.submit(Graph{{finalIo}, {}, cycles + 2});
