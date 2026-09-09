@@ -1,4 +1,5 @@
 #include "../src/core/Video.hpp"
+#include <algorithm>
 #include "../src/io/VideoBackend.hpp"
 
 #include <chrono>
