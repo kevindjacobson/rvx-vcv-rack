@@ -45,6 +45,8 @@ Record exact dependency revisions and applicable licenses when selecting code. T
 
 **3. Signal model and patching**
 
+The [shared signal, timing and feedback specification](docs/SIGNAL-CONTRACTS.md) defines units/types, clock and bridge boundaries, causal history, numeric examples, consumer mapping and acceptance cases for issue #3. It distinguishes the implemented progressive float prototype from proposed timestamped controls, interlaced/composite streams and continuous raster modulation. The summaries below remain planning context; the detailed sheet preserves unresolved release and fidelity gates.
+
 Four signal domains need explicit treatment:
 
 | Domain | Represents | Rules |

@@ -19,6 +19,7 @@ The prototype development target is the observed Apple M4 with 16 GiB RAM, macOS
 - [RVX implementation plan](VCV-Video-System-Plan.md): architecture, existing work, signal/timing contracts, module roadmap, acceptance gates, effort estimates and outstanding decisions.
 - [RVX LZX feasibility review](LZX-Mac-Feasibility.md): 96 assessed catalog entries, grades and source references.
 - [Structured grades](research/grades.json): machine-readable assessment data.
+- [Signal, timing and feedback contracts](docs/SIGNAL-CONTRACTS.md): shared units/types, clock domains, audio bridges, causal history and testable release proposals, reconciled with the implemented prototype for issue #3.
 - [Memory Palace behavior sheet](docs/MEMORY-PALACE.md): selected V19 reference, control/port audit, proposed four-path routing and history rules, reusable operators, reference patches and unresolved fidelity gates for issue #6.
 - [Project working instructions](AGENTS.md): planning boundary and documentation practices.
 - [Contribution workflow](CONTRIBUTING.md): one issue, branch and PR per deliverable; review, validation and merge handling.
