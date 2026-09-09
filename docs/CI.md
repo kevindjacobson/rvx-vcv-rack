@@ -87,3 +87,19 @@ record. The deferred waveform work in issue #16 is outside this workflow.
 The first remote run is evidence about the exact workflow revision and hosted
 image only. Record its URL and result in the pull request; local workflow syntax
 and equivalent commands do not substitute for that run.
+
+
+## First hosted run and clock-test repair
+
+The first hosted run on September 9, 2026 ([34404100441](https://github.com/kevindjacobson/rvx-vcv-rack/actions/runs/34404100441),
+head `2414923`) passed the Ubuntu suites and Mac dependency fetch/build. The Mac
+core suite exposed an existing assertion that equated completed renders with
+scheduled frame numbers, despite the engine's documented overload skipping.
+Later Mac SDK/package steps were skipped in that failed run.
+
+The test now records worker frame IDs, checks exact completed-render count and
+last displayed identity, and bounds scheduled age by completed renders plus
+skips. Skips can be recorded after the final render before shutdown. A deliberate
+100 ms backend stall also verifies that skipping is actually exercised. Engine
+behavior and timing contracts are unchanged. Subsequent hosted results are
+recorded in PR #29; the first failed run remains part of the evidence.

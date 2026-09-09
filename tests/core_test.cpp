@@ -9,6 +9,7 @@
 #include <limits>
 #include <string>
 #include <thread>
+#include <vector>
 
 using namespace rvx;
 
@@ -1027,6 +1028,8 @@ void testRejectedGraphPublisherTeardown() {
 
 struct ThreadBackendState {
     std::atomic<int> created{0}, calls{0}, destroyed{0}, violations{0};
+    int initialStallMilliseconds = 0; // Set before worker start.
+    std::vector<uint64_t> receivedTicks; // Worker writes; inspect only after stop/join.
 };
 
 class ThreadBackend : public VideoBackend {
@@ -1038,8 +1041,13 @@ public:
         ++state->destroyed;
     }
     std::vector<VideoSource> sources() override { verify(); return {}; }
-    FramePtr receive(const IoSettings&, const Format&, uint64_t, double) override {
-        verify(); ++state->calls; return {};
+    FramePtr receive(const IoSettings&, const Format&, uint64_t tick, double) override {
+        verify();
+        if (state->receivedTicks.empty() && state->initialStallMilliseconds > 0)
+            std::this_thread::sleep_for(std::chrono::milliseconds(state->initialStallMilliseconds));
+        state->receivedTicks.push_back(tick);
+        ++state->calls;
+        return {};
     }
     void publish(const IoSettings&, FramePtr) override { verify(); }
     std::string status() const override {
@@ -1089,11 +1097,14 @@ void testBackendWorkerLifetime() {
     CHECK(state->violations.load() == 0);
 }
 
-void testEngineIndependentClock() {
+void testEngineIndependentClock(int initialStallMilliseconds) {
     Format format{4, 2, 50, 1};
     auto source = std::make_shared<Node>(Kind::TestImage);
-    Engine engine(format);
-    engine.submit(Graph{{source}, {}, 1});
+    auto io = std::make_shared<Node>(Kind::VideoIo);
+    auto state = std::make_shared<ThreadBackendState>();
+    state->initialStallMilliseconds = initialStallMilliseconds;
+    Engine engine(format, [state] { return std::make_unique<ThreadBackend>(state); });
+    engine.submit(Graph{{source, io}, {}, 1});
     engine.start();
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
     while (engine.stats().ticks < 7 && std::chrono::steady_clock::now() < deadline)
@@ -1104,7 +1115,24 @@ void testEngineIndependentClock() {
     CHECK(stats.workerRun != 0);
     CHECK(stats.renderMilliseconds.count == stats.ticks);
     CHECK(stats.renderErrors == 0 && stats.renderErrorFrames == 0);
-    CHECK(source->display() && source->display()->tick + 1 == stats.ticks);
+    CHECK(state->receivedTicks.size() == stats.ticks);
+    CHECK(!state->receivedTicks.empty());
+    if (!state->receivedTicks.empty()) {
+        CHECK(state->receivedTicks.front() == 0);
+        for (size_t i = 1; i < state->receivedTicks.size(); ++i)
+            CHECK(state->receivedTicks[i] > state->receivedTicks[i - 1]);
+        const auto displayed = source->display();
+        CHECK(displayed && displayed->tick == state->receivedTicks.back());
+        // Completed renders exclude skipped scheduled ticks. The worker can also
+        // record skips after its final render, before stop() joins it.
+        const uint64_t scheduledThroughDisplay = state->receivedTicks.back() + 1;
+        CHECK(scheduledThroughDisplay >= stats.ticks);
+        CHECK(scheduledThroughDisplay <= stats.ticks + stats.skippedTicks);
+        if (initialStallMilliseconds > 0) {
+            CHECK(stats.skippedTicks > 0);
+            CHECK(scheduledThroughDisplay > stats.ticks);
+        }
+    }
     CHECK(stats.frameBytes > 0 && stats.maxMilliseconds >= stats.lastMilliseconds);
     CHECK(stats.maxMilliseconds == stats.renderMilliseconds.maximumMilliseconds);
     CHECK(stats.renderMilliseconds.quantile(.50) <= stats.renderMilliseconds.quantile(.95));
@@ -1199,7 +1227,8 @@ int main() {
     testIoSettingTransitions();
     testRejectedGraphPublisherTeardown();
     testBackendWorkerLifetime();
-    testEngineIndependentClock();
+    testEngineIndependentClock(0);
+    testEngineIndependentClock(100);
     testWorkerRunIdentifiers();
     testEngineReportAggregation();
     if (failures) {
