@@ -1460,9 +1460,77 @@ void testRecorderRetentionAndBudget() {
     CHECK(f.recorder->display()->recorderFrames == 0);
 }
 
+void testRecorderSharedStorageAndRejectedGraphs() {
+    RecorderFixture f;
+    auto second = std::make_shared<Node>(Kind::Recorder);
+    f.graph.nodes.push_back(second);
+    f.graph.connections.push_back(connect(f.source, 0, second, 0));
+    second->params[kRecorderRecordParam] = 1;
+    second->params[kRecorderCapacityParam] = 2;
+    auto clip = f.record(2);
+    second->params[kRecorderRecordParam] = 0;
+    second->params[kRecorderPositionParam] = 1;
+    const size_t image = 4 * 2 * 4 * sizeof(float);
+    const size_t field = image / 4;
+    CHECK(f.step().frameBytes == 3 * image + field);
+    CHECK(second->display()->outputs[0] == clip[1]);
+    CHECK(f.output() == clip[0]);
+    // Every rejection exit includes hidden clips once, even shared across recorders.
+    const auto valid = f.format;
+    f.format.width = 0;
+    CHECK(f.step().frameBytes == 2 * image);
+    CHECK(f.recorder->display()->recorderFrames == 2);
+    CHECK(second->display()->recorderFrames == 2);
+    f.format = valid;
+    CHECK(f.step().errors == 0);
+    f.graph.nodes.resize(1025, second);
+    const auto tooMany = f.step();
+    CHECK(tooMany.errors == 1);
+    CHECK(tooMany.frameBytes == 2 * image);
+    CHECK(second->display()->recorderFrames == 2);
+    f.graph.nodes.resize(3);
+    CHECK(f.step().errors == 0);
+    // Clear one owner; the other still retains exactly the same shared two captures.
+    f.recorder->params[kRecorderClearParam] = 1;
+    f.step();
+    CHECK(second->display()->recorderFrames == 2);
+    f.graph.nodes.erase(f.graph.nodes.begin());
+    f.graph.connections.erase(f.graph.connections.begin());
+    CHECK(f.step().frameBytes == 3 * image + field);
+
+    RecorderFixture large;
+    large.format = {1024, 1024, 30, 1};
+    auto largeClip = large.record(8);
+    largeClip.clear(); // The oracle must not keep the storage alive during release checks.
+    auto newcomer = std::make_shared<Node>(Kind::Recorder);
+    large.graph.nodes.push_back(newcomer);
+    large.graph.connections.push_back(connect(large.source, 0, newcomer, 0));
+    newcomer->params[kRecorderCapacityParam] = 24;
+    newcomer->params[kRecorderRecordParam] = 1;
+    large.recorder->bypass = true;
+    const auto refused = large.step();
+    CHECK(refused.errors == 1); // Hidden bypass clip plus requested capacity exceeds budget.
+    CHECK(refused.frameBytes == 8 * 1024ull * 1024 * 4 * sizeof(float));
+    CHECK(large.recorder->display()->recorderFrames == 8);
+    CHECK(newcomer->display()->recorderFrames == 0);
+    newcomer->params[kRecorderRecordParam] = 0;
+    CHECK(large.step().errors == 0);
+    newcomer->params[kRecorderRecordParam] = 1;
+    large.recorder->params[kRecorderClearParam] = 1;
+    CHECK(large.step().errors == 0); // Clear frees hidden ownership before admission.
+    CHECK(large.recorder->display()->recorderFrames == 0);
+    CHECK(newcomer->display()->recorderFrames == 1);
+    newcomer->bypass = true;
+    CHECK(large.step().errors == 0);
+    newcomer->bypass = false;
+    CHECK(large.step().errors == 0);
+    CHECK(newcomer->display()->recorderFrames == 1); // Bypass cannot silently restart capture.
+}
+
 } // namespace
 
 int main() {
+    testRecorderSharedStorageAndRejectedGraphs();
     testRecorderCaptureAndSeek();
     testRecorderTransport();
     testRecorderLifecycleAndFeedback();
