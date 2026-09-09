@@ -1,0 +1,162 @@
+{
+  "version": "2.6.6",
+  "zoom": 1.0,
+  "gridOffset": [
+    -2.0,
+    -0.020004112273454666
+  ],
+  "modules": [
+    {
+      "id": 100,
+      "plugin": "Fundamental",
+      "model": "VCO",
+      "version": "2.6.4",
+      "params": [
+        {
+          "value": 0.0,
+          "id": 0
+        },
+        {
+          "value": 1.0,
+          "id": 1
+        },
+        {
+          "value": -36.0,
+          "id": 2
+        },
+        {
+          "value": 0.0,
+          "id": 3
+        },
+        {
+          "value": 0.0,
+          "id": 4
+        },
+        {
+          "value": 0.5,
+          "id": 5
+        },
+        {
+          "value": 0.0,
+          "id": 6
+        },
+        {
+          "value": 0.0,
+          "id": 7
+        }
+      ],
+      "pos": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 101,
+      "plugin": "RVX",
+      "model": "CvBridge",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 1.0,
+          "id": 0
+        },
+        {
+          "value": 0.10000000149011612,
+          "id": 1
+        },
+        {
+          "value": 0.5,
+          "id": 2
+        }
+      ],
+      "rightModuleId": 102,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        12,
+        0
+      ]
+    },
+    {
+      "id": 102,
+      "plugin": "RVX",
+      "model": "SignalProcessor",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 1.0,
+          "id": 0
+        },
+        {
+          "value": 0.0,
+          "id": 1
+        },
+        {
+          "value": 0.0,
+          "id": 2
+        },
+        {
+          "value": 1.0,
+          "id": 3
+        }
+      ],
+      "leftModuleId": 101,
+      "rightModuleId": 104,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        24,
+        0
+      ]
+    },
+    {
+      "id": 104,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "params": [],
+      "leftModuleId": 102,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        40,
+        0
+      ]
+    }
+  ],
+  "cables": [
+    {
+      "id": 1001,
+      "outputModuleId": 101,
+      "outputId": 0,
+      "inputModuleId": 102,
+      "inputId": 2,
+      "color": "#ff5ac2",
+      "inputPlugOrder": 4,
+      "outputPlugOrder": 3
+    },
+    {
+      "id": 1002,
+      "outputModuleId": 102,
+      "outputId": 0,
+      "inputModuleId": 104,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 6,
+      "outputPlugOrder": 5
+    },
+    {
+      "id": 1000,
+      "outputModuleId": 100,
+      "outputId": 0,
+      "inputModuleId": 101,
+      "inputId": 1,
+      "color": "#f8ba33",
+      "inputPlugOrder": 2,
+      "outputPlugOrder": 1
+    }
+  ]
+}

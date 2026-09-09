@@ -1,0 +1,184 @@
+{
+  "version": "2.6.6",
+  "zoom": 0.75,
+  "gridOffset": [
+    -2,
+    -0.02
+  ],
+  "modules": [
+    {
+      "id": 200,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "params": [
+        {
+          "id": 0,
+          "value": 2.0
+        },
+        {
+          "id": 1,
+          "value": 0.25
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 201,
+      "plugin": "RVX",
+      "model": "SignalProcessor",
+      "version": "2.0.0",
+      "params": [
+        {
+          "id": 0,
+          "value": 1.0
+        },
+        {
+          "id": 1,
+          "value": 0.0
+        },
+        {
+          "id": 2,
+          "value": 0.0
+        },
+        {
+          "id": 3,
+          "value": 0.0
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        12,
+        0
+      ]
+    },
+    {
+      "id": 202,
+      "plugin": "RVX",
+      "model": "CvBridge",
+      "version": "2.0.0",
+      "params": [
+        {
+          "id": 0,
+          "value": 0.0
+        },
+        {
+          "id": 1,
+          "value": 0.1
+        },
+        {
+          "id": 2,
+          "value": 0.0
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        28,
+        0
+      ]
+    },
+    {
+      "id": 203,
+      "plugin": "RVX",
+      "model": "FrameDelay",
+      "version": "2.0.0",
+      "params": [
+        {
+          "id": 0,
+          "value": 0.0
+        },
+        {
+          "id": 1,
+          "value": 15.0
+        }
+      ],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        40,
+        0
+      ]
+    },
+    {
+      "id": 204,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "params": [],
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        50,
+        0
+      ]
+    },
+    {
+      "id": 205,
+      "plugin": "RVX",
+      "model": "VideoIo",
+      "version": "2.0.0",
+      "params": [],
+      "data": {
+        "rvxSchema": 1,
+        "sourceId": "",
+        "sourceApplication": "RVX error missing late invalid overflow Long Application Issue30",
+        "sourceName": "Healthy error missing late invalid overflow Long Source Issue30 / 720x480",
+        "publisherName": "RVX long publisher Issue30",
+        "defaultPublisherName": "RVX default",
+        "publisherOwnerModuleId": 205,
+        "publish": true,
+        "holdLast": true
+      },
+      "pos": [
+        66,
+        0
+      ]
+    }
+  ],
+  "cables": [
+    {
+      "id": 2000,
+      "outputModuleId": 205,
+      "outputId": 0,
+      "inputModuleId": 201,
+      "inputId": 0,
+      "color": "#70d99b"
+    },
+    {
+      "id": 2002,
+      "outputModuleId": 201,
+      "outputId": 0,
+      "inputModuleId": 203,
+      "inputId": 0,
+      "color": "#70d99b"
+    },
+    {
+      "id": 2003,
+      "outputModuleId": 203,
+      "outputId": 0,
+      "inputModuleId": 204,
+      "inputId": 0,
+      "color": "#70d99b"
+    },
+    {
+      "id": 2004,
+      "outputModuleId": 203,
+      "outputId": 0,
+      "inputModuleId": 205,
+      "inputId": 0,
+      "color": "#70d99b"
+    }
+  ]
+}

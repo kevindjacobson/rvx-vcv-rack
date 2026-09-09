@@ -1,0 +1,13 @@
+{
+  "event": "ready",
+  "mode": "observe",
+  "pid": 77603,
+  "expectedOutputApplication": "RVX Native Panels Rack",
+  "expectedOutputName": "RVX long publisher Issue30",
+  "nonceHex": "513e5edaafb64a31",
+  "measuredDurationSeconds": 3600,
+  "publishedSource": {
+    "application": "RVX error missing late invalid overflow Long Application Issue30",
+    "name": "Healthy error missing late invalid overflow Long Source Issue30 / 720x480"
+  }
+}
