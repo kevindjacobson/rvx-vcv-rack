@@ -35,7 +35,7 @@ Ask the reviewer to look for correctness and regression risks, inconsistent assu
 
 Record the review agent, reviewed revisions, findings and their resolution in the PR, including an explicit result when no actionable findings remain. Fix findings in the issue worktree. Substantive fixes or integration changes require another newly spawned reviewer without inherited history. Supply current requirements and changed evidence to that fresh reviewer; verify prior findings separately so their resolution is not lost. Purely mechanical edits can use a targeted recheck, but any doubt about behavior, contracts or acceptance criteria requires fresh review. Re-run appropriate checks after fixes.
 
-Independent review informs readiness; it does not authorize merging or expand the approved coding scope. The orchestrator reconciles the review with the current issue audit and the actual diff before presenting the PR. Re-audit after merge as described above.
+Independent review informs readiness and does not expand the approved coding scope. The user granted standing merge authorization on September 9, 2026: after CI and fresh independent review pass, the orchestrator reconciles the actual diff with the current issue audit and all readiness criteria, then merges autonomously unless a material decision or unresolved requirement needs user input. This authorization persists across sessions. Re-audit after merge as described above.
 
 **Screenshot evidence**
 
