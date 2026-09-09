@@ -89,6 +89,8 @@ int main() {
     assert(classifyStatus("Bypassed") == StatusSeverity::Healthy);
     assert(classifyStatus("recording") == StatusSeverity::Healthy);
     assert(classifyStatus("playing") == StatusSeverity::Healthy);
+    assert(classifyStatus("position CV override") == StatusSeverity::Healthy);
+    assert(classifyStatus("playback endpoint hold") == StatusSeverity::Healthy);
     assert(classifyStatus("empty clip") == StatusSeverity::Healthy);
     assert(classifyStatus("clip retained; release Record to rearm") == StatusSeverity::Healthy);
     assert(classifyStatus("clip cleared: format change") == StatusSeverity::Healthy);
@@ -537,6 +539,59 @@ int main() {
         capture(2000);
         renderer.render(graph, format, 4, 4 * period);
         expect(20.f);
+    }
+
+    // Connect Rack's real voltage capture to the renderer's retained-frame seek.
+    {
+        rvx::rackadapter::TestImageModule source;
+        VideoRecorderModule recorder;
+        const rvx::Format format{4, 1, 30000, 1001};
+        const double period = 1001.0 / 30000.0;
+        rvx::Graph graph{{source.node(), recorder.node()},
+            {{source.node()->key, 0, recorder.node()->key, 0}}, 1};
+        rvx::Renderer renderer;
+        uint64_t tick = 0;
+        auto render = [&]() {
+            recorder.process({48000.f, 1.f / 48000.f, static_cast<int64_t>(tick)});
+            renderer.render(graph, format, tick, tick * period);
+            ++tick;
+        };
+        recorder.params[VideoRecorderModule::CAPACITY_PARAM].setValue(3.f);
+        recorder.params[VideoRecorderModule::RECORD_PARAM].setValue(1.f);
+        render();
+        const auto firstFrame = source.node()->display()->outputs[0];
+        render();
+        render();
+        const auto lastFrame = source.node()->display()->outputs[0];
+        assert(recorder.node()->display()->recorderFrames == 3);
+        recorder.params[VideoRecorderModule::RECORD_PARAM].setValue(0.f);
+        recorder.params[VideoRecorderModule::POSITION_PARAM].setValue(1.f);
+        render();
+        assert(recorder.node()->display()->outputs[0] == lastFrame);
+        recorder.inputs[VideoRecorderModule::POSITION_INPUT].channels = 1;
+        recorder.inputs[VideoRecorderModule::POSITION_INPUT].setVoltage(-2.f);
+        render();
+        assert(recorder.node()->display()->outputs[0] == firstFrame);
+        recorder.inputs[VideoRecorderModule::POSITION_INPUT].setVoltage(12.f);
+        render();
+        assert(recorder.node()->display()->outputs[0] == lastFrame);
+        recorder.inputs[VideoRecorderModule::POSITION_INPUT].setVoltage(
+            std::numeric_limits<float>::quiet_NaN());
+        render();
+        assert(recorder.node()->display()->outputs[0] == firstFrame);
+        assert(recorder.node()->display()->status.find("non-finite position CV")
+            != std::string::npos);
+        recorder.inputs[VideoRecorderModule::POSITION_INPUT].channels = 0;
+        render();
+        assert(recorder.node()->display()->outputs[0] == lastFrame);
+        assert(recorder.node()->display()->status.find("non-finite position CV")
+            == std::string::npos);
+        // Clear high and low occur between video ticks; the clip still clears.
+        recorder.params[VideoRecorderModule::CLEAR_PARAM].setValue(1.f);
+        recorder.process({48000.f, 1.f / 48000.f, static_cast<int64_t>(tick)});
+        recorder.params[VideoRecorderModule::CLEAR_PARAM].setValue(0.f);
+        render();
+        assert(recorder.node()->display()->recorderFrames == 0);
     }
 
     // Queue loss is another capture discontinuity, counted once per burst.

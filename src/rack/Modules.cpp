@@ -589,6 +589,7 @@ inline StatusSeverity classifyStatus(const std::string& status) {
             || segment == "bypassed" || segment == "recording"
             || segment == "playing" || segment == "empty clip"
             || segment == "clip retained" || segment == "release record to rearm"
+            || segment == "position cv override" || segment == "playback endpoint hold"
             || segment == "clip cleared" || segment == "clip cleared: format change"
             || segment == "clip cleared: time discontinuity";
         const bool waiting = std::any_of(std::begin(waitingTerms), std::end(waitingTerms),
