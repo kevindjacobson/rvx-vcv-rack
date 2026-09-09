@@ -2,7 +2,7 @@
 
 The `Prototype CI` workflow gives pull requests and `main` repeatable feedback on
 the portable engine and the private Apple Silicon package. It is an engineering
-check for the approved six-module prototype, not release certification.
+check for the approved prototype and recorder extension, not release certification.
 
 ## Automated coverage
 

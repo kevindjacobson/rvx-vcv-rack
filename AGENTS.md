@@ -1,5 +1,7 @@
 # RVX — project instructions
 
+- On September 9, 2026 the user additionally approved the standalone Video Recorder / Scrubber in issue #33: incoming-image recording, retained clip, knob/CV scrubbing and signed looping playback. This scoped extension may be implemented and validated independently of the remaining #13/#18/#30 gates; it does not authorize broader waveform, NTSC or Memory Palace implementation. See docs/VIDEO-RECORDER.md for the bounded first version and persistence limits.
+
 - Use RVX as the project and plugin-suite name and `rvx-vcv-rack` as the repository name and directory. Preserve the actual names of referenced LZX products, VCV Rack, and third-party projects.
 - Planning and research remain active. Begin plugin implementation, scaffolding, prototype builds, or dependency installation only within a scope the user has explicitly approved. Approval for that scope persists and must not be requested again; it does not approve broader release or fidelity work. Creating and maintaining this repository and its planning documents is authorized.
 - The user approved building the six-module prototype in issue #13 on September 7, 2026. Its implementation, dependency setup and validation are authorized. Full-release fidelity gates remain unverified; see docs/PROTOTYPE.md. Use isolated worktrees, focused issue PRs and a newly spawned independent reviewer without inherited author conversation. Audit all open issues before work/readiness/merge and after each merge.

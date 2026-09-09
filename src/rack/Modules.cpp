@@ -167,6 +167,66 @@ struct FrameDelayModule : Module {
     }
 };
 
+struct VideoRecorderModule : Module {
+    enum ParamIds {
+        RECORD_PARAM = kRecorderRecordParam,
+        PLAY_PARAM = kRecorderPlayParam,
+        POSITION_PARAM = kRecorderPositionParam,
+        SPEED_PARAM = kRecorderSpeedParam,
+        LOOP_PARAM = kRecorderLoopParam,
+        CLEAR_PARAM = kRecorderClearParam,
+        CAPACITY_PARAM = kRecorderCapacityParam,
+        NUM_PARAMS
+    };
+    enum InputIds { IMAGE_INPUT, POSITION_INPUT, NUM_INPUTS };
+    enum OutputIds { IMAGE_OUTPUT, NUM_OUTPUTS };
+    dsp::SchmittTrigger clearButtonDetector;
+
+    VideoRecorderModule() : Module(Kind::Recorder) {
+        config(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, 0);
+        configSwitch(RECORD_PARAM, 0.f, 1.f, 0.f, "Record", {"Off", "On"});
+        configSwitch(PLAY_PARAM, 0.f, 1.f, 0.f, "Play", {"Stopped", "Playing"});
+        configParam(POSITION_PARAM, 0.f, 1.f, 0.f, "Position", "%", 0.f, 100.f);
+        configParam(SPEED_PARAM, -4.f, 4.f, 1.f, "Playback speed", "x");
+        configSwitch(LOOP_PARAM, 0.f, 1.f, 1.f, "Loop", {"Off", "On"});
+        configButton(CLEAR_PARAM, "Clear clip");
+        engine::ParamQuantity* capacity = configParam(CAPACITY_PARAM,
+            static_cast<float>(kMinRecorderCapacity), static_cast<float>(kMaxRecorderCapacity),
+            static_cast<float>(kDefaultRecorderCapacity), "Capacity", " frames");
+        capacity->snapEnabled = true;
+        capacity->displayPrecision = 2;
+        configInput(IMAGE_INPUT, "Image to record");
+        configInput(POSITION_INPUT, "Position (0–10 V overrides knob and playback)");
+        configOutput(IMAGE_OUTPUT, "Recorded image");
+    }
+
+    void capture(const ProcessArgs& args) override {
+        (void) args;
+        // The renderer owns mapping, validation and clip memory. The audio
+        // callback only publishes ordinary CV and preserves brief Clear edges.
+        node_->cvVoltage.store(inputs[POSITION_INPUT].getVoltage(), std::memory_order_relaxed);
+        node_->recorderPositionConnected.store(inputs[POSITION_INPUT].isConnected(),
+            std::memory_order_release);
+        if (clearButtonDetector.process(params[CLEAR_PARAM].getValue()))
+            incrementTrigger(node_->resets);
+    }
+
+    void prepareRestoredState() override {
+        // Clips are transient. Neither patch recall nor duplication may start
+        // recording or playback merely because a saved transport was enabled.
+        params[RECORD_PARAM].setValue(0.f);
+        params[PLAY_PARAM].setValue(0.f);
+        params[CLEAR_PARAM].setValue(0.f);
+        clearButtonDetector.reset();
+    }
+
+    void onReset(const ResetEvent& e) override {
+        ::rack::engine::Module::onReset(e);
+        prepareRestoredState();
+        publishRestoredState();
+    }
+};
+
 struct VideoMonitorModule : Module {
     enum InputIds { IMAGE_INPUT, NUM_INPUTS };
     VideoMonitorModule() : Module(Kind::Monitor) {
@@ -526,7 +586,12 @@ inline StatusSeverity classifyStatus(const std::string& status) {
             || (segment.size() > 6
                 && segment.compare(segment.size() - 6, 6, " ready") == 0);
         const bool healthy = prefixedHealthy || ready || segment == "input idle"
-            || segment == "bypassed";
+            || segment == "bypassed" || segment == "recording"
+            || segment == "playing" || segment == "empty clip"
+            || segment == "clip retained" || segment == "release record to rearm"
+            || segment == "position cv override" || segment == "playback endpoint hold"
+            || segment == "clip cleared" || segment == "clip cleared: format change"
+            || segment == "clip cleared: time discontinuity";
         const bool waiting = std::any_of(std::begin(waitingTerms), std::end(waitingTerms),
             [&segment](const char* term) { return segment.find(term) != std::string::npos; });
         const bool problem = std::any_of(std::begin(problemTerms), std::end(problemTerms),
@@ -610,6 +675,28 @@ struct FrameCountDisplay : theme::ConsoleChoice {
     void onButton(const ButtonEvent& e) override {
         (void) e;
     }
+};
+
+struct RecorderCountDisplay : theme::ConsoleChoice {
+    std::weak_ptr<Node> node;
+
+    RecorderCountDisplay()
+        : theme::ConsoleChoice(theme::TextRole::Value, false, true) {
+        text = "EMPTY / 0 FRAMES";
+    }
+
+    void step() override {
+        const std::shared_ptr<Node> n = node.lock();
+        const std::shared_ptr<const NodeDisplay> display = n ? n->display() : nullptr;
+        if (!display || display->recorderFrames == 0)
+            text = "EMPTY / 0 FRAMES";
+        else
+            text = "FRAME " + std::to_string(display->recorderIndex + 1)
+                + " / " + std::to_string(display->recorderFrames);
+        app::LedDisplayChoice::step();
+    }
+
+    void onButton(const ButtonEvent& e) override { (void) e; }
 };
 
 struct TestImageWidget : ModuleWidget {
@@ -747,6 +834,56 @@ struct FrameDelayWidget : ModuleWidget {
     }
 };
 
+struct VideoRecorderWidget : ModuleWidget {
+    VideoRecorderWidget(VideoRecorderModule* module) : ModuleWidget(module) {
+        theme::Panel* panel = new theme::Panel(16, "VIDEO RECORDER", "RVX / RETAIN + SCRUB", 7);
+        panel->cellBox(4.f, 17.f, 73.f, 22.f);
+        panel->cellBox(4.f, 41.f, 73.f, 33.f);
+        panel->label(14.f, 20.f, "RECORD", 8.f);
+        panel->label(32.f, 20.f, "PLAY", 8.f);
+        panel->label(50.f, 20.f, "LOOP", 8.f);
+        panel->label(68.f, 20.f, "CLEAR", 8.f, theme::TextRole::Alert);
+        panel->label(32.f, 36.f, "UP = ON / DOWN = OFF", 7.f, theme::TextRole::Secondary);
+        panel->label(16.f, 44.f, "POSITION", 8.f);
+        panel->label(41.f, 44.f, "SPEED", 8.f);
+        panel->label(66.f, 44.f, "CAPACITY", 8.f);
+        panel->label(16.f, 70.f, "FIRST — LAST", 7.f, theme::TextRole::Secondary);
+        panel->label(41.f, 70.f, "REV — FWD", 7.f, theme::TextRole::Secondary);
+        panel->label(66.f, 70.f, "1–60 FRAMES", 7.f, theme::TextRole::Secondary);
+        panel->label(14.f, 106.f, "IMG / IN", 8.f, theme::TextRole::Video);
+        panel->label(41.f, 106.f, "POS / CV", 8.f, theme::TextRole::Secondary);
+        panel->label(68.f, 106.f, "IMG / OUT", 8.f, theme::TextRole::Video);
+        panel->label(41.f, 122.f, "0–10 V / ABSOLUTE", 7.f, theme::TextRole::Secondary);
+        setPanel(panel);
+        addScrews(this, box.size.x);
+        addParam(createParamCentered<CKSS>(pos(14.f, 28.f), module, VideoRecorderModule::RECORD_PARAM));
+        addParam(createParamCentered<CKSS>(pos(32.f, 28.f), module, VideoRecorderModule::PLAY_PARAM));
+        addParam(createParamCentered<CKSS>(pos(50.f, 28.f), module, VideoRecorderModule::LOOP_PARAM));
+        theme::addGuard(this, pos(68.f, 28.f));
+        addParam(createParamCentered<LEDButton>(pos(68.f, 28.f), module, VideoRecorderModule::CLEAR_PARAM));
+        theme::addKnobScale(this, pos(16.f, 57.f), false);
+        theme::addKnobScale(this, pos(41.f, 57.f), true);
+        theme::addKnobScale(this, pos(66.f, 57.f), false);
+        addParam(createParamCentered<theme::RvxKnob>(pos(16.f, 57.f), module, VideoRecorderModule::POSITION_PARAM));
+        addParam(createParamCentered<theme::RvxKnob>(pos(41.f, 57.f), module, VideoRecorderModule::SPEED_PARAM));
+        addParam(createParamCentered<theme::RvxSnapKnob>(pos(66.f, 57.f), module, VideoRecorderModule::CAPACITY_PARAM));
+        RecorderCountDisplay* count = new RecorderCountDisplay;
+        count->box.pos = pos(5.f, 77.f);
+        count->box.size = pos(71.f, 8.f);
+        if (module) count->node = module->node();
+        addChild(count);
+        StatusText* status = new StatusText;
+        status->box.pos = pos(5.f, 87.f);
+        status->box.size = pos(71.f, 15.f);
+        status->module = module;
+        if (module) status->node = module->node();
+        addChild(status);
+        addVideoInput(pos(14.f, 114.f), VideoRecorderModule::IMAGE_INPUT, PortType::Image);
+        addInput(createInputCentered<theme::UtilityPort>(pos(41.f, 114.f), module, VideoRecorderModule::POSITION_INPUT));
+        addVideoOutput(pos(68.f, 114.f), VideoRecorderModule::IMAGE_OUTPUT, PortType::Image);
+    }
+};
+
 struct VideoMonitorWidget : ModuleWidget {
     VideoMonitorWidget(VideoMonitorModule* module) : ModuleWidget(module) {
         theme::Panel* panel = new theme::Panel(16, "VIDEO MONITOR", "RVX / COLOR-NEUTRAL VIEW", 5);
@@ -834,3 +971,5 @@ Model* modelRvxCvBridge = createModel<rvx::rackadapter::CvBridgeModule, rvx::rac
 Model* modelRvxFrameDelay = createModel<rvx::rackadapter::FrameDelayModule, rvx::rackadapter::FrameDelayWidget>("FrameDelay");
 Model* modelRvxVideoMonitor = createModel<rvx::rackadapter::VideoMonitorModule, rvx::rackadapter::VideoMonitorWidget>("VideoMonitor");
 Model* modelRvxVideoIo = createModel<rvx::rackadapter::VideoIoModule, rvx::rackadapter::VideoIoWidget>("VideoIo");
+
+Model* modelRvxVideoRecorder = createModel<rvx::rackadapter::VideoRecorderModule, rvx::rackadapter::VideoRecorderWidget>("VideoRecorder");

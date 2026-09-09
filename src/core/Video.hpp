@@ -20,7 +20,7 @@ struct Frame {
 };
 using FramePtr = std::shared_ptr<const Frame>;
 enum class PortType { None, Audio, Field, Image };
-enum class Kind { TestImage, Processor, CvBridge, Delay, Monitor, VideoIo };
+enum class Kind { TestImage, Processor, CvBridge, Delay, Monitor, VideoIo, Recorder };
 inline constexpr int kDelayClearParam = 0;
 inline constexpr int kDelayFramesParam = 1;
 inline constexpr int kMinDelayFrames = 1;
@@ -29,9 +29,21 @@ inline constexpr int kDefaultDelayFrames = 1;
 // Shared by the renderer and Rack adapter so automation, display and storage use
 // one finite, snapped range. Non-finite values restore the legacy one-frame default.
 int normalizedDelayFrames(float value) noexcept;
+inline constexpr int kRecorderRecordParam = 0;
+inline constexpr int kRecorderPlayParam = 1;
+inline constexpr int kRecorderPositionParam = 2;
+inline constexpr int kRecorderSpeedParam = 3;
+inline constexpr int kRecorderLoopParam = 4;
+inline constexpr int kRecorderClearParam = 5;
+inline constexpr int kRecorderCapacityParam = 6;
+inline constexpr int kMinRecorderCapacity = 1;
+inline constexpr int kMaxRecorderCapacity = 60;
+inline constexpr int kDefaultRecorderCapacity = 60;
+int normalizedRecorderCapacity(float value) noexcept;
 // Fixed port indices are part of the prototype patch schema.
 // TestImage: out 0 image, 1 field. Processor: in 0/1 image, 2 field; out 0 image, 1 field.
 // CvBridge: in 0 CV, 1 audio, 2 trigger; out 0 field. Delay: in 0 image, 1 clear gate; out 0 image.
+// Recorder: in 0 image, 1 position CV (0–10 V); out 0 image.
 // Monitor: in 0 image. VideoIo: in 0 image (publish); out 0 image (receive).
 PortType inputType(Kind kind, int port);
 PortType outputType(Kind kind, int port);
@@ -66,12 +78,15 @@ struct NodeDisplay {
     std::string status;
     std::vector<VideoSource> sources;
     uint64_t tick = 0;
+    size_t recorderFrames = 0, recorderIndex = 0;
+    bool recorderRecording = false, recorderPlaying = false;
 };
 struct Node {
     const uint64_t key; // Never reused within this plugin process; not a Rack pointer/patch ID.
     const Kind kind;
     std::array<std::atomic<float>, 8> params{};
     std::atomic<float> cvVoltage{0};
+    std::atomic<bool> recorderPositionConnected{false};
     std::atomic<bool> bypass{false};
     std::atomic<uint64_t> triggers{0}, resets{0};
     SpscQueue<AudioSample, 32768> audio;

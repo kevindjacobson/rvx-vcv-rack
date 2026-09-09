@@ -53,6 +53,7 @@ uint64_t currentFrameAllocationBytes(const Graph& graph, const Format& format) {
         case Kind::TestImage: result = addFrameBytes(result, image + field); break;
         case Kind::Processor: result = addFrameBytes(result, image + field); break;
         case Kind::CvBridge: result = addFrameBytes(result, field); break;
+        case Kind::Recorder:
         case Kind::Delay: break; // Its output aliases retained history or a shared input.
         case Kind::Monitor: break;
         case Kind::VideoIo: result = addFrameBytes(result, 3 * image); break;
@@ -230,6 +231,13 @@ int normalizedDelayFrames(float value) noexcept {
     return static_cast<int>(std::lround(value));
 }
 
+int normalizedRecorderCapacity(float value) noexcept {
+    if (!std::isfinite(value)) return kDefaultRecorderCapacity;
+    if (value <= kMinRecorderCapacity) return kMinRecorderCapacity;
+    if (value >= kMaxRecorderCapacity) return kMaxRecorderCapacity;
+    return static_cast<int>(std::lround(value));
+}
+
 void RenderTimingHistogram::observe(double milliseconds) noexcept {
     if (!(milliseconds >= 0.0))
         milliseconds = 0.0;
@@ -273,6 +281,7 @@ PortType inputType(Kind kind, int port) {
         if (port == 1) return PortType::Audio;
         if (port == 2) return PortType::Audio;
         break;
+    case Kind::Recorder:
     case Kind::Delay:
         if (port == 0) return PortType::Image;
         if (port == 1) return PortType::Audio;
@@ -302,6 +311,7 @@ PortType outputType(Kind kind, int port) {
     case Kind::CvBridge:
         if (port == 0) return PortType::Field;
         break;
+    case Kind::Recorder:
     case Kind::Delay:
         if (port == 0) return PortType::Image;
         break;
@@ -321,6 +331,11 @@ Node::Node(Kind nodeKind) : key(nextNodeKey.fetch_add(1, std::memory_order_relax
         params[0].store(1.f, std::memory_order_relaxed);
     if (kind == Kind::CvBridge)
         params[1].store(0.1f, std::memory_order_relaxed);
+    if (kind == Kind::Recorder) {
+        params[kRecorderSpeedParam].store(1.f, std::memory_order_relaxed);
+        params[kRecorderLoopParam].store(1.f, std::memory_order_relaxed);
+        params[kRecorderCapacityParam].store(kDefaultRecorderCapacity, std::memory_order_relaxed);
+    }
     if (kind == Kind::Delay)
         params[kDelayFramesParam].store(static_cast<float>(kDefaultDelayFrames),
                                         std::memory_order_relaxed);
@@ -353,6 +368,134 @@ struct Renderer::Impl {
         bool haveTick = false;
         uint64_t lastTick = 0;
         int frames = kDefaultDelayFrames;
+    };
+    // All clip and transport state belongs to the render worker. Controls are latched
+    // once before admission; selecting old storage and appending input are separate phases.
+    struct RecorderState {
+        std::vector<FramePtr> clip;
+        int capacity = kDefaultRecorderCapacity;
+        float position = 0, speed = 1, priorPosition = 0;
+        bool loop = true, positionConnected = false;
+        double cvPosition = 0, playhead = 0, elapsed = 0, lastSeconds = 0;
+        size_t selected = 0;
+        uint64_t lastTick = 0;
+        bool haveTime = false, recordPressed = false, playPressed = false;
+        bool clearPressed = false, recording = false, playing = false;
+        bool pendingStart = false, wasRecording = false, wasPlaying = false;
+        bool priorPositionConnected = false, formatReset = false, nonFinite = false;
+        bool wasBypassed = false, resumeHold = false;
+        std::string status;
+
+        void clear() {
+            clip.clear();
+            playhead = 0;
+            selected = 0;
+            recording = playing = wasRecording = wasPlaying = false;
+        }
+
+        void latch(Node& node, bool bypassed, uint64_t tick, double seconds) {
+            status.clear();
+            nonFinite = false;
+            std::array<float, 7> controls{};
+            for (size_t i = 0; i < controls.size(); ++i) {
+                controls[i] = node.params[i].load(std::memory_order_relaxed);
+                nonFinite |= !std::isfinite(controls[i]);
+            }
+            capacity = normalizedRecorderCapacity(controls[kRecorderCapacityParam]);
+            auto finite = [&](int index) {
+                return std::isfinite(controls[index]) ? controls[index] : 0.f;
+            };
+            const bool record = finite(kRecorderRecordParam) >= .5f;
+            playPressed = finite(kRecorderPlayParam) >= .5f;
+            const bool pressed = finite(kRecorderClearParam) >= .5f;
+            position = std::clamp(finite(kRecorderPositionParam), 0.f, 1.f);
+            speed = std::clamp(finite(kRecorderSpeedParam), -4.f, 4.f);
+            loop = finite(kRecorderLoopParam) >= .5f;
+            positionConnected = node.recorderPositionConnected.load(std::memory_order_acquire);
+            const float voltage = node.cvVoltage.load(std::memory_order_relaxed);
+            cvPosition = std::isfinite(voltage) ? std::clamp(voltage / 10.0, 0.0, 1.0) : 0.0;
+            if (positionConnected && !std::isfinite(voltage)) {
+                nonFinite = true;
+                appendStatus(status, "non-finite position CV");
+            }
+            const bool reset = node.resets.exchange(0, std::memory_order_acq_rel) > 0;
+            const bool discontinuity = !std::isfinite(seconds) ||
+                (haveTime && (tick <= lastTick || seconds < lastSeconds));
+            const bool cleared = reset || formatReset || discontinuity || (pressed && !clearPressed);
+            elapsed = haveTime && std::isfinite(seconds) && !discontinuity
+                ? seconds - lastSeconds : 0;
+            haveTime = true;
+            lastSeconds = std::isfinite(seconds) ? seconds : 0;
+            lastTick = tick;
+            if (cleared) {
+                clear();
+                appendStatus(status, formatReset ? "clip cleared: format change" :
+                    discontinuity ? "clip cleared: time discontinuity" : "clip cleared");
+            }
+            pendingStart = record && !recordPressed && !cleared && !bypassed;
+            if (!record || bypassed || clip.size() >= static_cast<size_t>(capacity))
+                recording = false;
+            resumeHold = wasBypassed && !bypassed;
+            wasBypassed = bypassed;
+            if (bypassed) {
+                playing = false;
+                wasRecording = false;
+            }
+            recordPressed = record;
+            clearPressed = pressed;
+            formatReset = false;
+        }
+
+        FramePtr select(double rate) {
+            playing = playPressed && !recording && !clip.empty();
+            if (clip.empty()) {
+                wasRecording = recording;
+                wasPlaying = false;
+                return {};
+            }
+            const double last = static_cast<double>(clip.size() - 1);
+            if (recording) {
+                playhead = last;
+            } else {
+                const bool seek = positionConnected || position != priorPosition ||
+                    priorPositionConnected || (!resumeHold &&
+                    (wasRecording || (playing && !wasPlaying)));
+                if (seek) playhead = (positionConnected ? cvPosition : position) * last;
+                else if (playing && !resumeHold && speed != 0) {
+                    // Reduce large elapsed intervals before addition so finite timestamps
+                    // cannot overflow the playhead. The loop contains N image intervals.
+                    const double advance = elapsed * rate * speed;
+                    if (loop && clip.size() > 1) {
+                        const double span = static_cast<double>(clip.size());
+                        const double step = std::isfinite(advance) ? std::fmod(advance, span) : 0;
+                        playhead = std::fmod(playhead + step, span);
+                        if (playhead < 0) playhead += span;
+                    } else {
+                        playhead = std::clamp(playhead + advance, 0.0, last);
+                    }
+                }
+            }
+            // Switching Loop off must settle its final fractional interval at the
+            // last image even when playback is paused or Speed is zero.
+            if (!loop) playhead = std::clamp(playhead, 0.0, last);
+            // Nearest-image selection wraps the last half-interval to image zero.
+            // Ignore sub-nanoframe timestamp cancellation at exact half-image ties.
+            constexpr double nearestTieTolerance = 1e-9;
+            selected = static_cast<size_t>(std::floor(playhead + .5 + nearestTieTolerance)) %
+                clip.size();
+            priorPosition = position;
+            priorPositionConnected = positionConnected;
+            wasRecording = recording;
+            wasPlaying = playing;
+            return clip[selected];
+        }
+
+        void describe(NodeDisplay& display) const {
+            display.recorderFrames = clip.size();
+            display.recorderIndex = selected;
+            display.recorderRecording = recording;
+            display.recorderPlaying = playing;
+        }
     };
     struct TestState {
         double phase = 0;
@@ -388,6 +531,7 @@ struct Renderer::Impl {
 
     VideoBackendFactory factory;
     std::unordered_map<uint64_t, DelayState> delays;
+    std::unordered_map<uint64_t, RecorderState> recorders;
     std::unordered_map<uint64_t, TestState> tests;
     std::unordered_map<uint64_t, CvState> bridges;
     std::unordered_map<uint64_t, IoState> io;
@@ -400,6 +544,7 @@ struct Renderer::Impl {
             activeFormat.rateDenominator == format.rateDenominator)
             return;
         delays.clear();
+        for (auto& item : recorders) item.second.formatReset = true;
         tests.clear();
         for (auto& item : bridges) {
             auto& state = item.second;
@@ -416,6 +561,8 @@ struct Renderer::Impl {
     }
 
     void cleanup(const std::unordered_set<uint64_t>& live) {
+        for (auto it = recorders.begin(); it != recorders.end();)
+            it = live.count(it->first) ? std::next(it) : recorders.erase(it);
         for (auto it = delays.begin(); it != delays.end();)
             it = live.count(it->first) ? std::next(it) : delays.erase(it);
         for (auto it = tests.begin(); it != tests.end();)
@@ -461,6 +608,7 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
     std::vector<int> delayFrames(count, kDefaultDelayFrames);
     std::vector<bool> delayFramesFinite(count, true);
     std::unordered_set<uint64_t> latchedDelays;
+    std::unordered_set<uint64_t> latchedRecorders;
     std::unordered_set<uint64_t> reservedBridges;
     std::vector<FramePtr> hiddenHistory;
     uint64_t retainedStateBytes = 0;
@@ -482,6 +630,19 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 reservedStateBytes = addFrameBytes(
                     reservedStateBytes, kMaxAudioHistory * sizeof(AudioSample));
             }
+            continue;
+        }
+        if (node->kind == Kind::Recorder) {
+            if (!latchedRecorders.insert(node->key).second) continue;
+            auto& state = impl_->recorders[node->key];
+            state.latch(*node, bypassed[index], tick, seconds);
+            // A stopped/bypassed clip still occupies storage. New capacity is reserved
+            // only when capture can use it; Clear/bypass therefore recover admission.
+            const size_t slots = !bypassed[index] && (state.recording || state.pendingStart)
+                ? std::max(state.clip.size(), static_cast<size_t>(state.capacity))
+                : state.clip.size();
+            reservedStateBytes = addFrameBytes(reservedStateBytes, slots * imageBytes);
+            hiddenHistory.insert(hiddenHistory.end(), state.clip.begin(), state.clip.end());
             continue;
         }
         if (node->kind != Kind::Delay) continue;
@@ -563,6 +724,13 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
                 display->status = "video graph exceeds 512 MiB frame budget";
             if (publisherStopFailures.count(node->key))
                 appendStatus(display->status, "backend stop failed");
+            if (node->kind == Kind::Recorder) {
+                auto& state = impl_->recorders[node->key];
+                state.playing = false;
+                state.wasPlaying = false;
+                state.describe(*display);
+                appendStatus(display->status, state.status);
+            }
             node->publishDisplay(display);
         }
         // The estimate above includes future capacity reservations. Preserve frameBytes as an
@@ -639,8 +807,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         if (!graph.nodes[destination] || duplicate[destination]) continue;
         for (const auto& binding : inputs[destination]) {
             if (!binding.connected || duplicate[binding.source]) continue;
-            const bool activeDelay = graph.nodes[destination]->kind == Kind::Delay &&
-                !bypassed[destination];
+            const bool activeDelay = (graph.nodes[destination]->kind == Kind::Delay ||
+                graph.nodes[destination]->kind == Kind::Recorder) && !bypassed[destination];
             const bool deferredVideoPublication = graph.nodes[destination]->kind == Kind::VideoIo;
             if (activeDelay || deferredVideoPublication) continue;
             dependents[binding.source].push_back(destination);
@@ -733,8 +901,9 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
 
     for (size_t index : order) {
         const auto& node = *graph.nodes[index];
-        bool nonFiniteParameter = false;
-        for (size_t parameterIndex = 0; parameterIndex < node.params.size(); ++parameterIndex) {
+        bool nonFiniteParameter = node.kind == Kind::Recorder &&
+            impl_->recorders[node.key].nonFinite;
+        for (size_t parameterIndex = 0; parameterIndex < (node.kind == Kind::Recorder ? 0 : node.params.size()); ++parameterIndex) {
             if (node.kind == Kind::Delay &&
                 parameterIndex == static_cast<size_t>(kDelayFramesParam)) {
                 nonFiniteParameter |= !delayFramesFinite[index];
@@ -1050,6 +1219,25 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
             outputs[index][0] = field;
             break;
         }
+        case Kind::Recorder: {
+            auto& state = impl_->recorders[node.key];
+            appendStatus(statuses[index], state.status);
+            if (bypassed[index]) {
+                const FramePtr immediate = input(index, 0);
+                outputs[index][0] = immediate && matchesFormat(*immediate, format, 4)
+                    ? immediate : black;
+                break;
+            }
+            if (state.pendingStart) {
+                state.clear();
+                state.recording = true;
+                state.pendingStart = false;
+            }
+            const auto selected = state.select(static_cast<double>(format.rateNumerator) /
+                                               format.rateDenominator);
+            outputs[index][0] = selected ? selected : black;
+            break;
+        }
         case Kind::Delay: {
             auto& state = impl_->delays[node.key];
             if (bypassed[index]) {
@@ -1085,6 +1273,30 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
     // source is itself delayed or repeats a frame.
     for (size_t index : order) {
         const auto& node = *graph.nodes[index];
+        if (node.kind == Kind::Recorder && !bypassed[index]) {
+            auto& state = impl_->recorders[node.key];
+            if (state.recording) {
+                const FramePtr next = input(index, 0);
+                if (next && matchesFormat(*next, format, 4)) {
+                    state.clip.push_back(next);
+                    if (state.clip.size() >= static_cast<size_t>(state.capacity))
+                        state.recording = false;
+                } else {
+                    appendStatus(statuses[index], "recording: missing valid image input");
+                }
+            }
+            appendStatus(statuses[index], state.recording ? "recording" :
+                state.playing ? "playing" : state.clip.empty() ? "empty clip" : "clip retained");
+            if (state.positionConnected && !state.recording && !state.clip.empty())
+                appendStatus(statuses[index], "position CV override");
+            else if (state.playing && !state.loop &&
+                     ((state.speed < 0 && state.playhead <= 0) ||
+                      (state.speed > 0 && state.playhead >= state.clip.size() - 1)))
+                appendStatus(statuses[index], "playback endpoint hold");
+            if (state.recordPressed && !state.recording)
+                appendStatus(statuses[index], "release Record to rearm");
+            continue;
+        }
         if (node.kind != Kind::Delay || bypassed[index]) continue;
         auto& state = impl_->delays[node.key];
         const FramePtr next = input(index, 0);
@@ -1146,6 +1358,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
         if (!graph.nodes[i]) continue;
         auto display = std::make_shared<NodeDisplay>();
         display->outputs = outputs[i];
+        if (graph.nodes[i]->kind == Kind::Recorder)
+            impl_->recorders[graph.nodes[i]->key].describe(*display);
         if (graph.nodes[i]->kind == Kind::Monitor)
             display->preview = bypassed[i] ? black : (input(i, 0) ? input(i, 0) : black);
         else if (graph.nodes[i]->kind == Kind::VideoIo)
@@ -1167,6 +1381,8 @@ RenderReport Renderer::render(const Graph& graph, const Format& format, uint64_t
     for (const auto& item : impl_->delays)
         for (const auto& capture : item.second.history)
             countFrame(capture.frame);
+    for (const auto& item : impl_->recorders)
+        for (const auto& frame : item.second.clip) countFrame(frame);
     for (const auto& item : impl_->io) countFrame(item.second.lastReceived);
     for (const auto& item : impl_->bridges)
         report.frameBytes += item.second.samples.size() * sizeof(AudioSample);

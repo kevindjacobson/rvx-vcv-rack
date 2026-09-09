@@ -42,7 +42,7 @@
     {
       "slug": "FrameDelay",
       "name": "Frame Delay",
-      "description": "Adjustable 1–60-frame video delay and feedback state",
+      "description": "Adjustable 1\u201360-frame video delay and feedback state",
       "tags": [
         "Visual",
         "Delay"
@@ -63,6 +63,15 @@
       "tags": [
         "Visual",
         "External"
+      ]
+    },
+    {
+      "slug": "VideoRecorder",
+      "name": "Video Recorder",
+      "description": "Bounded image recording, retained clips, CV scrubbing and forward/reverse playback",
+      "tags": [
+        "Visual",
+        "Sampler"
       ]
     }
   ]

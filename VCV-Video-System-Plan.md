@@ -6,6 +6,8 @@ September 7, 2026. Status: full-release design remains proposed. The user explic
 
 Adjustable Frame Delay is implemented as follow-on issue #18, preserving the prototype's one-frame default with a separate implementation and validation scope. The requested ordinary-audio waveform round trip is deferred in #16 until the prototype and shared signal/Syphon/NTSC prerequisites are ready; the preliminary notes merged from PR #17 are not a release commitment or implementation authorization.
 
+The user separately approved the [Video Recorder / Scrubber](docs/VIDEO-RECORDER.md) extension in #33 on September 9, 2026. It records a bounded in-memory clip for knob/CV scrubbing and signed looping playback. This utility can proceed independently of the remaining original prototype gates; full-release and fidelity requirements remain open.
+
 The companion [RVX LZX feasibility review](LZX-Mac-Feasibility.md) records 96 assessed catalog entries and their sources. This document turns that inventory into a product scope, architecture, development sequence, and acceptance criteria. Proposed engineering choices below are recommendations, not claims about software already built or benchmarked.
 
 **1. Intended outcome and scope**
