@@ -1,0 +1,123 @@
+{
+  "version": "2.6.6",
+  "path": "/Users/kj/Documents/Codex/2026-09-07/rvx-vcv-rack-worktrees/issue-30-native-panels/build/example-saves/RVX-Frame-Delay.vcv",
+  "zoom": 2.0,
+  "gridOffset": [
+    -2.0,
+    -0.020004112273454666
+  ],
+  "modules": [
+    {
+      "id": 700,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 2.0,
+          "id": 0
+        },
+        {
+          "value": 0.25,
+          "id": 1
+        }
+      ],
+      "rightModuleId": 702,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 701,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "params": [],
+      "leftModuleId": 702,
+      "rightModuleId": 703,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        22,
+        0
+      ]
+    },
+    {
+      "id": 702,
+      "plugin": "RVX",
+      "model": "FrameDelay",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 0.0,
+          "id": 0
+        },
+        {
+          "value": 15.0,
+          "id": 1
+        }
+      ],
+      "leftModuleId": 700,
+      "rightModuleId": 701,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        12,
+        0
+      ]
+    },
+    {
+      "id": 703,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "params": [],
+      "leftModuleId": 701,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        38,
+        0
+      ]
+    }
+  ],
+  "cables": [
+    {
+      "id": 7001,
+      "outputModuleId": 700,
+      "outputId": 0,
+      "inputModuleId": 702,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 4,
+      "outputPlugOrder": 3
+    },
+    {
+      "id": 7002,
+      "outputModuleId": 702,
+      "outputId": 0,
+      "inputModuleId": 703,
+      "inputId": 0,
+      "color": "#ff5ac2",
+      "inputPlugOrder": 6,
+      "outputPlugOrder": 5
+    },
+    {
+      "id": 7000,
+      "outputModuleId": 700,
+      "outputId": 0,
+      "inputModuleId": 701,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 2,
+      "outputPlugOrder": 1
+    }
+  ]
+}

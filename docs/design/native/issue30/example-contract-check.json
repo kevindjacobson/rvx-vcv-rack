@@ -1,0 +1,46 @@
+{
+  "runtimeRevision": "470e6e0abffd69897a46ccf00dd5519ccd6f3764",
+  "comparison": "Original module/model/parameter IDs and values (1e-6 float tolerance), cable IDs and endpoints versus native Rack autosave JSON written after reopening and saving the native-saved .vcv",
+  "examples": [
+    {
+      "example": "RVX-Audio-to-Video.vcv",
+      "sourceSha256": "4051c49535232437ed473b7b953d60782d9982a89952054b7a1dfd42fdad77ec",
+      "nativeSavedJsonSha256": "4b5f0754e6d7506732767dc42b0742e97d9b09b35087e967a21687e5ed38f027",
+      "modules": 4,
+      "cables": 3,
+      "moduleParameterAndCableIdentitiesPreserved": true
+    },
+    {
+      "example": "RVX-Experimental-Chain.vcv",
+      "sourceSha256": "cfa9eb0823beaf23d0058db5a3d44ac312b424a0a0ed5224eb969648c07db943",
+      "nativeSavedJsonSha256": "3c14d69faa655c6403be44a7c157e1bbefb5ef03eaf5b9ffd8b02480f7e49a02",
+      "modules": 6,
+      "cables": 6,
+      "moduleParameterAndCableIdentitiesPreserved": true
+    },
+    {
+      "example": "RVX-Experimental-Feedback.vcv",
+      "sourceSha256": "f97b63dc744e158f7a8fcf4c651d15fe930abb85017b191632778b09c5263fd3",
+      "nativeSavedJsonSha256": "1a67e59dd3dbdd2f8d7db16fe76f706af124b1ced7c3fb282ed29b23b40019df",
+      "modules": 7,
+      "cables": 7,
+      "moduleParameterAndCableIdentitiesPreserved": true
+    },
+    {
+      "example": "RVX-Frame-Delay.vcv",
+      "sourceSha256": "ab13f74fc8c033dc00434ea6c99d8e960a2702985ae0e754c68998ba246605a2",
+      "nativeSavedJsonSha256": "ee0fdc2d8c4a672b483747ed631638cf438c7b6001905d2702c125f5b1a0270e",
+      "modules": 4,
+      "cables": 3,
+      "moduleParameterAndCableIdentitiesPreserved": true
+    },
+    {
+      "example": "RVX-Phase-Patterns.vcv",
+      "sourceSha256": "10654ed143fed45f249914f4ada5a5b6d249ae32e194c0a903b7a7aa9f59c363",
+      "nativeSavedJsonSha256": "be6a768fbbf37f0b9a2332980ff8f77b52ba3a9184f2f11b417fcf2ddc87e8f7",
+      "modules": 8,
+      "cables": 4,
+      "moduleParameterAndCableIdentitiesPreserved": true
+    }
+  ]
+}

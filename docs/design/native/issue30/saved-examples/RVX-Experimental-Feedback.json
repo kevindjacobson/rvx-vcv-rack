@@ -1,0 +1,266 @@
+{
+  "version": "2.6.6",
+  "path": "/Users/kj/Documents/Codex/2026-09-07/rvx-vcv-rack-worktrees/issue-30-native-panels/build/example-saves/RVX-Experimental-Feedback.vcv",
+  "zoom": 0.75,
+  "gridOffset": [
+    -2.0,
+    -0.020004112273454666
+  ],
+  "modules": [
+    {
+      "id": 200,
+      "plugin": "RVX",
+      "model": "TestImage",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 3.0,
+          "id": 0
+        },
+        {
+          "value": 0.125,
+          "id": 1
+        }
+      ],
+      "rightModuleId": 201,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": 201,
+      "plugin": "RVX",
+      "model": "CvBridge",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 0.0,
+          "id": 0
+        },
+        {
+          "value": 0.10000000149011612,
+          "id": 1
+        },
+        {
+          "value": 1.0,
+          "id": 2
+        }
+      ],
+      "leftModuleId": 200,
+      "rightModuleId": 202,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        12,
+        0
+      ]
+    },
+    {
+      "id": 202,
+      "plugin": "RVX",
+      "model": "SignalProcessor",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 1.0,
+          "id": 0
+        },
+        {
+          "value": 0.0,
+          "id": 1
+        },
+        {
+          "value": 0.0,
+          "id": 2
+        },
+        {
+          "value": 0.0,
+          "id": 3
+        }
+      ],
+      "leftModuleId": 201,
+      "rightModuleId": 203,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        24,
+        0
+      ]
+    },
+    {
+      "id": 203,
+      "plugin": "RVX",
+      "model": "SignalProcessor",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 0.77999997138977051,
+          "id": 0
+        },
+        {
+          "value": 0.2199999988079071,
+          "id": 1
+        },
+        {
+          "value": 0.0,
+          "id": 2
+        },
+        {
+          "value": 0.0,
+          "id": 3
+        }
+      ],
+      "leftModuleId": 202,
+      "rightModuleId": 204,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        40,
+        0
+      ]
+    },
+    {
+      "id": 204,
+      "plugin": "RVX",
+      "model": "FrameDelay",
+      "version": "2.0.0",
+      "params": [
+        {
+          "value": 0.0,
+          "id": 0
+        },
+        {
+          "value": 1.0,
+          "id": 1
+        }
+      ],
+      "leftModuleId": 203,
+      "rightModuleId": 205,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        56,
+        0
+      ]
+    },
+    {
+      "id": 205,
+      "plugin": "RVX",
+      "model": "VideoMonitor",
+      "version": "2.0.0",
+      "params": [],
+      "leftModuleId": 204,
+      "rightModuleId": 206,
+      "data": {
+        "rvxSchema": 1
+      },
+      "pos": [
+        66,
+        0
+      ]
+    },
+    {
+      "id": 206,
+      "plugin": "RVX",
+      "model": "VideoIo",
+      "version": "2.0.0",
+      "params": [],
+      "leftModuleId": 205,
+      "data": {
+        "rvxSchema": 1,
+        "sourceId": "",
+        "sourceApplication": "",
+        "sourceName": "",
+        "publisherName": "RVX Experimental Feedback",
+        "defaultPublisherName": "RVX default",
+        "publisherOwnerModuleId": 206,
+        "publish": true,
+        "holdLast": false
+      },
+      "pos": [
+        82,
+        0
+      ]
+    }
+  ],
+  "cables": [
+    {
+      "id": 2004,
+      "outputModuleId": 203,
+      "outputId": 0,
+      "inputModuleId": 204,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 10,
+      "outputPlugOrder": 9
+    },
+    {
+      "id": 2005,
+      "outputModuleId": 204,
+      "outputId": 0,
+      "inputModuleId": 205,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 12,
+      "outputPlugOrder": 11
+    },
+    {
+      "id": 2002,
+      "outputModuleId": 202,
+      "outputId": 0,
+      "inputModuleId": 203,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 6,
+      "outputPlugOrder": 5
+    },
+    {
+      "id": 2003,
+      "outputModuleId": 204,
+      "outputId": 0,
+      "inputModuleId": 203,
+      "inputId": 1,
+      "color": "#ff5ac2",
+      "inputPlugOrder": 8,
+      "outputPlugOrder": 7
+    },
+    {
+      "id": 2000,
+      "outputModuleId": 200,
+      "outputId": 0,
+      "inputModuleId": 202,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 2,
+      "outputPlugOrder": 1
+    },
+    {
+      "id": 2001,
+      "outputModuleId": 201,
+      "outputId": 0,
+      "inputModuleId": 202,
+      "inputId": 2,
+      "color": "#ff5ac2",
+      "inputPlugOrder": 4,
+      "outputPlugOrder": 3
+    },
+    {
+      "id": 2006,
+      "outputModuleId": 204,
+      "outputId": 0,
+      "inputModuleId": 206,
+      "inputId": 0,
+      "color": "#4dc9ff",
+      "inputPlugOrder": 14,
+      "outputPlugOrder": 13
+    }
+  ]
+}
