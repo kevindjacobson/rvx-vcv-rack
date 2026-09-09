@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="270" height="380" viewBox="0 0 270 380">
+  <style>
+    .title{font:600 15px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.7px;fill:#e8e2cf}
+    .suite{font:600 7px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:1.7px;fill:#8c9184}
+    .id{font:600 18px 'Barlow Condensed','Arial Narrow',sans-serif;fill:#080908}
+    .label{font:600 9px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.8px;fill:#e8e2cf}
+    .minor{font:400 8px 'Barlow Condensed','Arial Narrow',sans-serif;fill:#8c9184}
+    .data{font:400 10px 'Barlow Condensed','Arial Narrow',sans-serif;fill:#f29a38}
+    .code{font:600 8px 'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:1px;fill:#70d99b}
+  </style>
+  <rect width="270" height="380" fill="#080908"/><path d="M1 1h268v378H1z" fill="none" stroke="#34382f"/><path d="M0 7h270" stroke="#f29a38" stroke-width="3"/>
+  <path d="M9 18h201l8 8v25H9z" fill="#11130f" stroke="#4b4f42"/><text class="title" x="16" y="36">VIDEO I/O</text><text class="suite" x="16" y="47">RVX / SYPHON TRANSCEIVER</text>
+  <path d="M223 18h38v33h-38z" fill="#f29a38"/><text class="id" x="242" y="40" text-anchor="middle">06</text>
+  <g stroke="#70d99b" opacity=".65"><path d="M9 58h252"/><path d="M9 55v6m10-4v4m10-4v4m10-4v4m10-4v4m10-6v6m10-4v4m10-4v4m10-4v4m10-4v4m10-6v6m10-4v4m10-4v4m10-4v4m10-4v4m10-6v6m10-4v4m10-4v4m10-4v4m10-4v4m10-6v6m10-4v4m10-4v4m10-4v4m10-4v4"/></g>
+  <text class="label" x="15" y="78">01 / RECEIVE SOURCE</text><text class="minor" x="255" y="78" text-anchor="end">APPLICATION / SERVER</text>
+  <path d="M9 85h252v34H9z" fill="#11130f" stroke="#34382f"/><path d="M16 92h238v20H16z" fill="#080908" stroke="#f29a38"/><text class="data" x="22" y="106">From App: Resolume Arena / Stage Composition—A</text><path d="M246 99l4 4-4 4" fill="none" stroke="#f29a38"/>
+  <text class="label" x="15" y="139">02 / PUBLISH IDENTITY</text><text class="minor" x="255" y="139" text-anchor="end">EDITABLE NAME</text>
+  <path d="M9 146h252v34H9z" fill="#11130f" stroke="#34382f"/><path d="M16 153h238v20H16z" fill="#080908" stroke="#f29a38"/><text class="data" x="22" y="167">RVX / Feedback Main</text>
+  <text class="label" x="15" y="200">03 / LINK POLICY</text>
+  <path d="M9 207h122v35H9zM139 207h122v35H139z" fill="#11130f" stroke="#34382f"/><text class="minor" x="17" y="221">PUBLISH OUTPUT</text><text class="code" x="17" y="235">ON / ACTIVE</text><path d="M116 215h7v19h-7z" fill="#70d99b"/>
+  <text class="minor" x="147" y="221">MISSING INPUT</text><text class="data" x="147" y="235">HOLD LAST</text><path d="M246 215h7v19h-7z" fill="#a884c7"/>
+  <text class="label" x="15" y="262">04 / ADAPTER STATUS</text>
+  <path d="M9 269h252v50H9z" fill="#0d170f" stroke="#70d99b"/><text class="code" x="17" y="286">SYPHON READY</text><text class="minor" x="17" y="302">STATUS FROM ACTIVE BACKEND</text><path d="M218 292h35" stroke="#70d99b"/><path d="M218 286v12m7-8v8m7-8v8m7-12v12m7-8v8m7-8v8" stroke="#70d99b"/>
+  <g><text class="code" x="42" y="339" text-anchor="middle">IMG / TO APP</text><rect x="31" y="346" width="22" height="22" transform="rotate(45 42 357)" fill="#080908" stroke="#70d99b"/><circle cx="42" cy="357" r="8" fill="#161813" stroke="#e8e2cf"/>
+  <path d="M73 357h124" stroke="#34382f"/><path d="M85 353v8m20-6v6m20-6v6m20-6v6m20-6v6m20-8v8" stroke="#f29a38"/>
+  <text class="code" x="228" y="339" text-anchor="middle">IMG / FROM APP</text><rect x="217" y="346" width="22" height="22" transform="rotate(45 228 357)" fill="#080908" stroke="#70d99b"/><circle cx="228" cy="357" r="8" fill="#161813" stroke="#e8e2cf"/></g>
+</svg>

@@ -61,7 +61,7 @@ build/rack-adapter-test: src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics
 test-rack-adapter: build/rack-adapter-test
 	./build/rack-adapter-test
 
-build/rack-host-test: src/core/Video.cpp src/core/Video.hpp src/rack/RackAdapter.cpp src/rack/RackAdapter.hpp src/rack/Modules.cpp src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics.hpp tests/rack_host_test.cpp | check-sdk
+build/rack-host-test: src/core/Video.cpp src/core/Video.hpp src/rack/RackAdapter.cpp src/rack/RackAdapter.hpp src/rack/Modules.cpp src/rack/RvxTheme.hpp src/rack/PublisherNames.hpp src/rack/AdapterDiagnostics.hpp tests/rack_host_test.cpp | check-sdk
 	@mkdir -p build
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -pthread src/core/Video.cpp src/rack/RackAdapter.cpp tests/rack_host_test.cpp -L"$(RACK_DIR)" -lRack -o $@
 

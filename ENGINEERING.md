@@ -37,6 +37,14 @@ Record the review agent, reviewed revisions, findings and their resolution in th
 
 Independent review informs readiness; it does not authorize merging or expand the approved coding scope. The orchestrator reconciles the review with the current issue audit and the actual diff before presenting the PR. Re-audit after merge as described above.
 
+**Screenshot evidence**
+
+Every PR must embed durable screenshot evidence that a repository reviewer can open and read. There is no non-UI or `N/A` exemption. For a UI-visible change, use representative native UI screenshots and capture the affected state before and after when that comparison is relevant. For a non-UI change, capture an authentic relevant executed test, output, diagnostic, or rendered-document state. The image supplements test logs and review; it never establishes that an unrun acceptance gate passed.
+
+Place the evidence in the PR's **Screenshot evidence** section. Each image needs a caption stating the exact captured revision, scenario, what the image evidences, and its limits. Store it as an embedded durable GitHub attachment or a repository image embed pinned to the commit containing that image; local paths and expiring artifact links do not satisfy the requirement. Verify the embedded image renders in the PR. Keep captures readable, scoped to RVX, and free of credentials, tokens, personal information, or unrelated private content.
+
+A draft whose capture is not yet available must say **Capture pending**, with the intended scenario and reason. It cannot become ready or merge until its embedded evidence is present. Refresh the evidence when a relevant behavior or rendered result changes. The template and reviewer checklist document this manual workflow; they do not provide automated enforcement.
+
 **Review source code as a deliverable**
 
 | Review area | Completion evidence |
@@ -56,6 +64,6 @@ Each issue should describe its reuse implications. Each implementation PR should
 
 **Ready to merge and complete**
 
-A PR is ready when its issue criteria, behavior, relevant validation, fresh independent review, code-quality assessment and pre-merge issue audit are satisfied. Remaining defects or invalid assumptions must be fixed or explicitly reflected in scope and follow-up issues; recording a follow-up is not permission to omit required behavior. After an authorized merge, the task remains in reconciliation until the post-merge audit and affected issue updates are complete.
+A PR is ready when its issue criteria, behavior, relevant validation, embedded screenshot evidence, fresh independent review, code-quality assessment and pre-merge issue audit are satisfied. Remaining defects or invalid assumptions must be fixed or explicitly reflected in scope and follow-up issues; recording a follow-up is not permission to omit required behavior. After an authorized merge, the task remains in reconciliation until the post-merge audit and affected issue updates are complete.
 
 Keep user-facing installation, quick start and module availability in README.md. Store engineering decisions in specifications and project documents, and keep audit history with the corresponding GitHub issue/PR.

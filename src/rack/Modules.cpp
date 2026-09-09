@@ -1,4 +1,5 @@
 #include "RackAdapter.hpp"
+#include "RvxTheme.hpp"
 #include "../plugin.hpp"
 
 #include <algorithm>
@@ -11,76 +12,6 @@ namespace rvx {
 namespace rackadapter {
 
 namespace {
-
-const NVGcolor kPanel = nvgRGB(25, 28, 38);
-const NVGcolor kInk = nvgRGB(232, 237, 244);
-const NVGcolor kMuted = nvgRGB(142, 153, 170);
-const NVGcolor kCyan = nvgRGB(77, 201, 255);
-const NVGcolor kPink = nvgRGB(255, 90, 194);
-
-struct LabelSpec {
-    math::Vec position;
-    std::string text;
-    float size;
-    NVGcolor color;
-    int align;
-    LabelSpec(math::Vec position, std::string text, float size = 9.f,
-              NVGcolor color = kInk, int align = NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE)
-        : position(position), text(text), size(size), color(color), align(align) {}
-};
-
-struct PrototypePanel : widget::Widget {
-    std::string title;
-    NVGcolor accent;
-    std::vector<LabelSpec> labels;
-
-    PrototypePanel(float hp, std::string title, NVGcolor accent)
-        : title(title), accent(accent) {
-        box.size = math::Vec(hp * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
-    }
-
-    void label(float xMm, float yMm, std::string text, float size = 9.f,
-               NVGcolor color = kInk, int align = NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE) {
-        labels.push_back(LabelSpec(mm2px(math::Vec(xMm, yMm)), text, size, color, align));
-    }
-
-    void draw(const DrawArgs& args) override {
-        nvgBeginPath(args.vg);
-        nvgRect(args.vg, 0, 0, box.size.x, box.size.y);
-        nvgFillColor(args.vg, kPanel);
-        nvgFill(args.vg);
-
-        nvgBeginPath(args.vg);
-        nvgRect(args.vg, 0, 0, box.size.x, mm2px(1.3f));
-        nvgFillColor(args.vg, accent);
-        nvgFill(args.vg);
-
-        nvgBeginPath(args.vg);
-        nvgRect(args.vg, 0.5f, 0.5f, box.size.x - 1.f, box.size.y - 1.f);
-        nvgStrokeWidth(args.vg, 1.f);
-        nvgStrokeColor(args.vg, nvgRGB(54, 60, 76));
-        nvgStroke(args.vg);
-
-        if (APP && APP->window && APP->window->uiFont)
-            nvgFontFaceId(args.vg, APP->window->uiFont->handle);
-        nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-        nvgFontSize(args.vg, 13.f);
-        nvgFillColor(args.vg, kInk);
-        nvgText(args.vg, box.size.x / 2.f, mm2px(5.4f), title.c_str(), NULL);
-        nvgFontSize(args.vg, 7.f);
-        nvgFillColor(args.vg, kMuted);
-        nvgText(args.vg, box.size.x / 2.f, mm2px(9.f), "RVX EXPERIMENTAL", NULL);
-
-        for (size_t i = 0; i < labels.size(); ++i) {
-            const LabelSpec& l = labels[i];
-            nvgFontSize(args.vg, l.size);
-            nvgFillColor(args.vg, l.color);
-            nvgTextAlign(args.vg, l.align);
-            nvgText(args.vg, l.position.x, l.position.y, l.text.c_str(), NULL);
-        }
-        widget::Widget::draw(args);
-    }
-};
 
 void addScrews(app::ModuleWidget* widget, float width) {
     widget->addChild(createWidget<ScrewSilver>(math::Vec(RACK_GRID_WIDTH, 0)));
@@ -410,11 +341,11 @@ struct Preview : widget::OpaqueWidget {
 
     void draw(const DrawArgs& args) override {
         nvgBeginPath(args.vg);
-        nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 4.f);
-        nvgFillColor(args.vg, nvgRGB(2, 4, 8));
+        nvgRect(args.vg, 0, 0, box.size.x, box.size.y);
+        nvgFillColor(args.vg, theme::panel());
         nvgFill(args.vg);
         nvgStrokeWidth(args.vg, 1.f);
-        nvgStrokeColor(args.vg, nvgRGBA(77, 201, 255, 130));
+        nvgStrokeColor(args.vg, theme::signal());
         nvgStroke(args.vg);
 
         std::shared_ptr<Node> sharedNode = node.lock();
@@ -443,22 +374,29 @@ struct Preview : widget::OpaqueWidget {
             nvgFill(args.vg);
         }
 
-        if (APP && APP->window && APP->window->uiFont)
-            nvgFontFaceId(args.vg, APP->window->uiFont->handle);
+        theme::useFont(args.vg);
         nvgFontSize(args.vg, 8.f);
         nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
-        nvgFillColor(args.vg, kInk);
+        nvgFillColor(args.vg, theme::paper());
         std::string status = display ? display->status : "Waiting for renderer";
         if (status.empty() && frame)
             status = std::to_string(frame->width) + " x " + std::to_string(frame->height)
                 + "  frame " + std::to_string(frame->sequence);
+        nvgSave(args.vg);
+        nvgScissor(args.vg, 4.f, box.size.y - 15.f,
+                   std::max(0.f, box.size.x - 8.f), 13.f);
         nvgText(args.vg, 5.f, box.size.y - 4.f, status.c_str(), NULL);
+        nvgRestore(args.vg);
         widget::OpaqueWidget::draw(args);
     }
 };
 
-struct SourceChoice : app::LedDisplayChoice {
+struct SourceChoice : theme::ConsoleChoice {
     std::weak_ptr<Node> node;
+
+    SourceChoice() : theme::ConsoleChoice(theme::TextRole::Value, true) {
+        text = "From App: None";
+    }
 
     void step() override {
         std::shared_ptr<Node> n = node.lock();
@@ -507,6 +445,8 @@ struct SourceChoice : app::LedDisplayChoice {
 struct PublisherField : app::LedDisplayTextField {
     std::weak_ptr<Node> node;
 
+    PublisherField() { theme::styleTextField(this); }
+
     void step() override {
         std::shared_ptr<Node> n = node.lock();
         if (n) {
@@ -525,9 +465,11 @@ struct PublisherField : app::LedDisplayTextField {
     }
 };
 
-struct IoToggle : app::LedDisplayChoice {
+struct IoToggle : theme::ConsoleChoice {
     std::weak_ptr<Node> node;
     bool publish = true;
+
+    IoToggle() : theme::ConsoleChoice(theme::TextRole::Video, true) {}
 
     void step() override {
         std::shared_ptr<Node> n = node.lock();
@@ -535,6 +477,9 @@ struct IoToggle : app::LedDisplayChoice {
             const IoSettings io = n->ioSettings();
             text = publish ? (io.publish ? "Publishing: On" : "Publishing: Off")
                            : (io.holdLast ? "Missing: Hold last" : "Missing: Black");
+            setRole(publish
+                ? (io.publish ? theme::TextRole::Video : theme::TextRole::Secondary)
+                : (io.holdLast ? theme::TextRole::Bypass : theme::TextRole::Secondary));
         }
         app::LedDisplayChoice::step();
     }
@@ -551,41 +496,109 @@ struct IoToggle : app::LedDisplayChoice {
     }
 };
 
+enum class StatusSeverity { Healthy, Waiting, Problem };
+
+inline StatusSeverity classifyStatus(const std::string& status) {
+    std::string folded = status;
+    std::transform(folded.begin(), folded.end(), folded.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    static const char* const problemTerms[] = {
+        "invalid", "error", "overflow", "late", "already in use", "cycle",
+        "exceeds", "failed", "rejected", "incomplete", "unavailable",
+        "missing", "ambiguous", "multiple", "duplicate", "non-finite",
+        "non-monotonic", "underrun", "evicted", "reanchored", "dropped",
+        "unsupported", "could not"
+    };
+    static const char* const waitingTerms[] = {"starting", "waiting", "preview"};
+    bool sawRecognized = false;
+    bool sawWaiting = false;
+    for (size_t begin = 0; begin <= folded.size();) {
+        const size_t end = folded.find(';', begin);
+        std::string segment = folded.substr(begin,
+            end == std::string::npos ? std::string::npos : end - begin);
+        const size_t first = segment.find_first_not_of(" \t");
+        const size_t last = segment.find_last_not_of(" \t");
+        segment = first == std::string::npos
+            ? std::string() : segment.substr(first, last - first + 1);
+        const bool prefixedHealthy = segment.rfind("receiving ", 0) == 0
+            || segment.rfind("publishing ", 0) == 0;
+        const bool ready = segment == "ready"
+            || (segment.size() > 6
+                && segment.compare(segment.size() - 6, 6, " ready") == 0);
+        const bool healthy = prefixedHealthy || ready || segment == "input idle"
+            || segment == "bypassed";
+        const bool waiting = std::any_of(std::begin(waitingTerms), std::end(waitingTerms),
+            [&segment](const char* term) { return segment.find(term) != std::string::npos; });
+        const bool problem = std::any_of(std::begin(problemTerms), std::end(problemTerms),
+            [&segment](const char* term) { return segment.find(term) != std::string::npos; });
+        if (problem && !healthy)
+            return StatusSeverity::Problem;
+        if (!waiting && !healthy)
+            return StatusSeverity::Problem;
+        sawRecognized = true;
+        sawWaiting = sawWaiting || waiting;
+        if (end == std::string::npos)
+            break;
+        begin = end + 1;
+    }
+    return sawRecognized
+        ? (sawWaiting ? StatusSeverity::Waiting : StatusSeverity::Healthy)
+        : StatusSeverity::Problem;
+}
+
 struct StatusText : widget::Widget {
     std::weak_ptr<Node> node;
+    ::rack::engine::Module* module = NULL;
+
     void draw(const DrawArgs& args) override {
         std::shared_ptr<Node> n = node.lock();
         std::shared_ptr<const NodeDisplay> display = n ? n->display() : std::shared_ptr<const NodeDisplay>();
-        std::string status = display ? display->status : "Starting video worker";
+        std::string status = display ? display->status
+            : n ? "Starting video worker" : "Module preview";
         if (n && ServiceRegistry::instance().invalidNativeOutputCount(n->key) > 0)
             status = "Invalid cable: video output is 0 V";
         else if (n && n->kind == Kind::VideoIo
             && ServiceRegistry::instance().publisherNameConflict(n->key))
             status = "Publisher name already in use";
-        if (status.empty()) status = "Ready";
-        std::string folded = status;
-        std::transform(folded.begin(), folded.end(), folded.begin(),
-            [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        const bool problem = folded.find("invalid") != std::string::npos
-            || folded.find("error") != std::string::npos
-            || folded.find("overflow") != std::string::npos
-            || folded.find("late") != std::string::npos;
+        const bool bypassed = module && module->isBypassed();
+        if (bypassed)
+            status = "Bypassed";
+        else if (status.empty())
+            status = "Ready";
+        const StatusSeverity severity = classifyStatus(status);
+        const bool problem = !bypassed && severity == StatusSeverity::Problem;
+        const bool waiting = !bypassed && severity == StatusSeverity::Waiting;
+        const NVGcolor stateColor = bypassed ? theme::bypass()
+            : problem ? theme::alert() : waiting ? theme::amber() : theme::signal();
         nvgBeginPath(args.vg);
-        nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 3.f);
-        nvgFillColor(args.vg, problem ? nvgRGBA(90, 19, 61, 210) : nvgRGBA(8, 11, 18, 170));
+        nvgRect(args.vg, 0, 0, box.size.x, box.size.y);
+        nvgFillColor(args.vg, problem ? theme::cellAlert() : theme::cellSignal());
         nvgFill(args.vg);
-        if (APP && APP->window && APP->window->uiFont)
-            nvgFontFaceId(args.vg, APP->window->uiFont->handle);
+        nvgStrokeWidth(args.vg, 1.f);
+        nvgStrokeColor(args.vg, stateColor);
+        nvgStroke(args.vg);
+        nvgBeginPath(args.vg);
+        nvgRect(args.vg, 0, 0, 2.f, box.size.y);
+        nvgFillColor(args.vg, stateColor);
+        nvgFill(args.vg);
+        theme::useFont(args.vg);
         nvgFontSize(args.vg, 8.f);
         nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-        nvgFillColor(args.vg, problem ? kInk : kMuted);
-        nvgTextBox(args.vg, 4.f, 3.f, box.size.x - 8.f, status.c_str(), NULL);
+        nvgFillColor(args.vg, problem ? theme::paper() : stateColor);
+        nvgSave(args.vg);
+        nvgScissor(args.vg, 4.f, 2.f, std::max(0.f, box.size.x - 7.f),
+                   std::max(0.f, box.size.y - 4.f));
+        nvgTextBox(args.vg, 5.f, 3.f, box.size.x - 10.f, status.c_str(), NULL);
+        nvgRestore(args.vg);
         widget::Widget::draw(args);
     }
 };
 
-struct FrameCountDisplay : app::LedDisplayChoice {
+struct FrameCountDisplay : theme::ConsoleChoice {
     engine::ParamQuantity* quantity = NULL;
+
+    FrameCountDisplay()
+        : theme::ConsoleChoice(theme::TextRole::Value, false, true) {}
 
     void step() override {
         text = std::to_string(quantity
@@ -601,19 +614,24 @@ struct FrameCountDisplay : app::LedDisplayChoice {
 
 struct TestImageWidget : ModuleWidget {
     TestImageWidget(TestImageModule* module) : ModuleWidget(module) {
-        PrototypePanel* panel = new PrototypePanel(12, "TEST IMAGE", kCyan);
-        panel->label(16.f, 19.f, "PATTERN", 8.f, kMuted);
-        panel->label(45.f, 19.f, "PHASE SPEED", 8.f, kMuted);
-        panel->label(17.f, 91.f, "IMAGE", 8.f, kCyan);
-        panel->label(44.f, 91.f, "FIELD", 8.f, kPink);
+        theme::Panel* panel = new theme::Panel(12, "TEST IMAGE", "RVX / SIGNAL GENERATOR", 1);
+        panel->cellBox(4.f, 17.f, 52.f, 31.f);
+        panel->label(16.f, 19.f, "01 / PATTERN", 8.f, theme::TextRole::Primary);
+        panel->label(45.f, 19.f, "02 / PHASE", 8.f, theme::TextRole::Primary);
+        panel->label(17.f, 91.f, "IMG / OUT", 8.f, theme::TextRole::Video);
+        panel->label(44.f, 91.f, "FLD / OUT", 8.f, theme::TextRole::Video);
         setPanel(panel);
         addScrews(this, box.size.x);
-        addParam(createParamCentered<RoundBlackSnapKnob>(pos(16.f, 33.f), module, TestImageModule::PATTERN_PARAM));
-        addParam(createParamCentered<RoundBlackKnob>(pos(45.f, 33.f), module, TestImageModule::PHASE_SPEED_PARAM));
+        theme::addKnobScale(this, pos(16.f, 33.f), false);
+        theme::addKnobScale(this, pos(45.f, 33.f), true);
+        addParam(createParamCentered<theme::RvxSnapKnob>(pos(16.f, 33.f), module, TestImageModule::PATTERN_PARAM));
+        addParam(createParamCentered<theme::RvxKnob>(pos(45.f, 33.f), module, TestImageModule::PHASE_SPEED_PARAM));
         StatusText* status = new StatusText;
         status->box.pos = pos(6.f, 49.f);
         status->box.size = pos(49.f, 18.f);
-        if (module) status->node = module->node();
+        status->module = module;
+        if (module)
+            status->node = module->node();
         addChild(status);
         addVideoOutput(pos(17.f, 101.f), TestImageModule::IMAGE_OUTPUT, PortType::Image);
         addVideoOutput(pos(44.f, 101.f), TestImageModule::FIELD_OUTPUT, PortType::Field);
@@ -622,26 +640,33 @@ struct TestImageWidget : ModuleWidget {
 
 struct SignalProcessorWidget : ModuleWidget {
     SignalProcessorWidget(SignalProcessorModule* module) : ModuleWidget(module) {
-        PrototypePanel* panel = new PrototypePanel(16, "SIGNAL PROCESSOR", kPink);
-        panel->label(11.f, 18.f, "GAIN A", 7.f, kMuted);
-        panel->label(31.f, 18.f, "GAIN B", 7.f, kMuted);
-        panel->label(51.f, 18.f, "OFFSET", 7.f, kMuted);
-        panel->label(71.f, 18.f, "MODE", 7.f, kMuted);
-        panel->label(11.f, 83.f, "A", 8.f, kCyan);
-        panel->label(31.f, 83.f, "B", 8.f, kCyan);
-        panel->label(51.f, 83.f, "FIELD", 8.f, kPink);
-        panel->label(31.f, 111.f, "IMAGE", 8.f, kCyan);
-        panel->label(57.f, 111.f, "FIELD", 8.f, kPink);
+        theme::Panel* panel = new theme::Panel(16, "SIGNAL PROCESSOR", "RVX / IMAGE ARITHMETIC", 2);
+        panel->cellBox(4.f, 17.f, 72.f, 31.f);
+        panel->label(11.f, 18.5f, "GAIN A", 7.f);
+        panel->label(31.f, 18.5f, "GAIN B", 7.f);
+        panel->label(51.f, 18.5f, "OFFSET", 7.f);
+        panel->label(71.f, 18.5f, "MODE", 7.f);
+        panel->label(11.f, 83.f, "IMG A", 8.f, theme::TextRole::Video);
+        panel->label(31.f, 83.f, "IMG B", 8.f, theme::TextRole::Video);
+        panel->label(51.f, 83.f, "FLD MOD", 8.f, theme::TextRole::Video);
+        panel->label(31.f, 111.f, "IMG / OUT", 8.f, theme::TextRole::Video);
+        panel->label(57.f, 111.f, "FLD / OUT", 8.f, theme::TextRole::Video);
         setPanel(panel);
         addScrews(this, box.size.x);
-        addParam(createParamCentered<RoundBlackKnob>(pos(11.f, 31.f), module, SignalProcessorModule::GAIN_A_PARAM));
-        addParam(createParamCentered<RoundBlackKnob>(pos(31.f, 31.f), module, SignalProcessorModule::GAIN_B_PARAM));
-        addParam(createParamCentered<RoundBlackKnob>(pos(51.f, 31.f), module, SignalProcessorModule::OFFSET_PARAM));
-        addParam(createParamCentered<RoundBlackSnapKnob>(pos(71.f, 31.f), module, SignalProcessorModule::MODE_PARAM));
+        theme::addKnobScale(this, pos(11.f, 31.f));
+        theme::addKnobScale(this, pos(31.f, 31.f));
+        theme::addKnobScale(this, pos(51.f, 31.f));
+        theme::addKnobScale(this, pos(71.f, 31.f), false);
+        addParam(createParamCentered<theme::RvxKnob>(pos(11.f, 31.f), module, SignalProcessorModule::GAIN_A_PARAM));
+        addParam(createParamCentered<theme::RvxKnob>(pos(31.f, 31.f), module, SignalProcessorModule::GAIN_B_PARAM));
+        addParam(createParamCentered<theme::RvxKnob>(pos(51.f, 31.f), module, SignalProcessorModule::OFFSET_PARAM));
+        addParam(createParamCentered<theme::RvxSnapKnob>(pos(71.f, 31.f), module, SignalProcessorModule::MODE_PARAM));
         StatusText* status = new StatusText;
         status->box.pos = pos(6.f, 49.f);
         status->box.size = pos(69.f, 18.f);
-        if (module) status->node = module->node();
+        status->module = module;
+        if (module)
+            status->node = module->node();
         addChild(status);
         addVideoInput(pos(11.f, 94.f), SignalProcessorModule::A_INPUT, PortType::Image);
         addVideoInput(pos(31.f, 94.f), SignalProcessorModule::B_INPUT, PortType::Image);
@@ -653,67 +678,80 @@ struct SignalProcessorWidget : ModuleWidget {
 
 struct CvBridgeWidget : ModuleWidget {
     CvBridgeWidget(CvBridgeModule* module) : ModuleWidget(module) {
-        PrototypePanel* panel = new PrototypePanel(12, "CV BRIDGE", kPink);
-        panel->label(11.f, 18.f, "MODE", 7.f, kMuted);
-        panel->label(31.f, 18.f, "SCALE", 7.f, kMuted);
-        panel->label(51.f, 18.f, "OFFSET", 7.f, kMuted);
-        panel->label(10.f, 79.f, "CV", 8.f, kInk);
-        panel->label(30.f, 79.f, "AUDIO", 8.f, kInk);
-        panel->label(50.f, 79.f, "TRIG", 8.f, kInk);
-        panel->label(30.f, 108.f, "VIDEO FIELD", 8.f, kPink);
+        theme::Panel* panel = new theme::Panel(12, "CV BRIDGE", "RVX / VOLTAGE CAPTURE", 3);
+        panel->cellBox(4.f, 17.f, 52.f, 31.f);
+        panel->label(11.f, 18.5f, "MODE", 7.f);
+        panel->label(31.f, 18.5f, "SCALE", 7.f);
+        panel->label(51.f, 18.5f, "OFFSET", 7.f);
+        panel->label(10.f, 79.f, "CV / IN", 8.f, theme::TextRole::Secondary);
+        panel->label(30.f, 79.f, "AUD / IN", 8.f, theme::TextRole::Secondary);
+        panel->label(50.f, 79.f, "TRG / IN", 8.f, theme::TextRole::Secondary);
+        panel->label(30.f, 108.f, "FLD / OUT", 8.f, theme::TextRole::Video);
         setPanel(panel);
         addScrews(this, box.size.x);
-        addParam(createParamCentered<RoundBlackSnapKnob>(pos(11.f, 31.f), module, CvBridgeModule::MODE_PARAM));
-        addParam(createParamCentered<RoundBlackKnob>(pos(31.f, 31.f), module, CvBridgeModule::SCALE_PARAM));
-        addParam(createParamCentered<RoundBlackKnob>(pos(51.f, 31.f), module, CvBridgeModule::OFFSET_PARAM));
+        theme::addKnobScale(this, pos(11.f, 31.f), false);
+        theme::addKnobScale(this, pos(31.f, 31.f));
+        theme::addKnobScale(this, pos(51.f, 31.f));
+        addParam(createParamCentered<theme::RvxSnapKnob>(pos(11.f, 31.f), module, CvBridgeModule::MODE_PARAM));
+        addParam(createParamCentered<theme::RvxKnob>(pos(31.f, 31.f), module, CvBridgeModule::SCALE_PARAM));
+        addParam(createParamCentered<theme::RvxKnob>(pos(51.f, 31.f), module, CvBridgeModule::OFFSET_PARAM));
         StatusText* status = new StatusText;
         status->box.pos = pos(6.f, 49.f);
         status->box.size = pos(49.f, 18.f);
-        if (module) status->node = module->node();
+        status->module = module;
+        if (module)
+            status->node = module->node();
         addChild(status);
-        addInput(createInputCentered<PJ301MPort>(pos(10.f, 90.f), module, CvBridgeModule::CV_INPUT));
-        addInput(createInputCentered<PJ301MPort>(pos(30.f, 90.f), module, CvBridgeModule::AUDIO_INPUT));
-        addInput(createInputCentered<PJ301MPort>(pos(50.f, 90.f), module, CvBridgeModule::TRIGGER_INPUT));
+        addInput(createInputCentered<theme::UtilityPort>(pos(10.f, 90.f), module, CvBridgeModule::CV_INPUT));
+        addInput(createInputCentered<theme::UtilityPort>(pos(30.f, 90.f), module, CvBridgeModule::AUDIO_INPUT));
+        addInput(createInputCentered<theme::UtilityPort>(pos(50.f, 90.f), module, CvBridgeModule::TRIGGER_INPUT));
         addVideoOutput(pos(30.f, 119.f), CvBridgeModule::FIELD_OUTPUT, PortType::Field);
     }
 };
 
 struct FrameDelayWidget : ModuleWidget {
     FrameDelayWidget(FrameDelayModule* module) : ModuleWidget(module) {
-        PrototypePanel* panel = new PrototypePanel(10, "FRAME DELAY", kCyan);
-        panel->label(25.f, 20.f, "FRAMES", 8.f, kMuted);
-        panel->label(25.f, 56.f, "CLEAR HISTORY", 8.f, kMuted);
-        panel->label(14.f, 80.f, "IMAGE", 8.f, kCyan);
-        panel->label(37.f, 80.f, "CLEAR", 8.f, kInk);
-        panel->label(25.f, 109.f, "DELAYED", 8.f, kCyan);
+        theme::Panel* panel = new theme::Panel(10, "FRAME DELAY", "RVX / IMAGE MEMORY", 4);
+        panel->cellBox(4.f, 17.f, 42.f, 38.f);
+        panel->cellBox(4.f, 56.f, 42.f, 12.f, theme::CellRole::Alert);
+        panel->label(25.f, 19.f, "CAPTURE AGE / 1—60 FR", 8.f);
+        panel->label(25.f, 58.f, "CLEAR HISTORY", 8.f, theme::TextRole::Alert);
+        panel->label(14.f, 80.f, "IMG / IN", 8.f, theme::TextRole::Video);
+        panel->label(37.f, 80.f, "CLR / CV", 8.f, theme::TextRole::Secondary);
+        panel->label(25.f, 109.f, "IMG / DELAYED", 8.f, theme::TextRole::Video);
         setPanel(panel);
         addScrews(this, box.size.x);
-        addParam(createParamCentered<RoundBlackSnapKnob>(pos(25.f, 35.f), module,
+        theme::addKnobScale(this, pos(25.f, 35.f), false);
+        addParam(createParamCentered<theme::RvxSnapKnob>(pos(25.f, 35.f), module,
             FrameDelayModule::FRAMES_PARAM));
         FrameCountDisplay* frameCount = new FrameCountDisplay;
-        frameCount->box.pos = pos(18.f, 46.f);
-        frameCount->box.size = pos(14.f, 8.f);
+        frameCount->box.pos = pos(16.f, 46.f);
+        frameCount->box.size = pos(18.f, 8.f);
         frameCount->quantity = module
             ? module->getParamQuantity(FrameDelayModule::FRAMES_PARAM) : NULL;
         frameCount->text = std::to_string(kDefaultDelayFrames);
         addChild(frameCount);
+        theme::addGuard(this, pos(25.f, 64.f));
         addParam(createParamCentered<LEDButton>(pos(25.f, 64.f), module,
             FrameDelayModule::CLEAR_PARAM));
         StatusText* status = new StatusText;
         status->box.pos = pos(5.f, 69.f);
         status->box.size = pos(40.f, 9.f);
-        if (module) status->node = module->node();
+        status->module = module;
+        if (module)
+            status->node = module->node();
         addChild(status);
         addVideoInput(pos(14.f, 89.f), FrameDelayModule::IMAGE_INPUT, PortType::Image);
-        addInput(createInputCentered<PJ301MPort>(pos(37.f, 89.f), module, FrameDelayModule::CLEAR_INPUT));
+        addInput(createInputCentered<theme::UtilityPort>(pos(37.f, 89.f), module, FrameDelayModule::CLEAR_INPUT));
         addVideoOutput(pos(25.f, 119.f), FrameDelayModule::IMAGE_OUTPUT, PortType::Image);
     }
 };
 
 struct VideoMonitorWidget : ModuleWidget {
     VideoMonitorWidget(VideoMonitorModule* module) : ModuleWidget(module) {
-        PrototypePanel* panel = new PrototypePanel(16, "VIDEO MONITOR", kCyan);
-        panel->label(40.5f, 105.f, "IMAGE IN", 8.f, kCyan);
+        theme::Panel* panel = new theme::Panel(16, "VIDEO MONITOR", "RVX / COLOR-NEUTRAL VIEW", 5);
+        panel->cellBox(4.f, 17.f, 73.f, 82.f, theme::CellRole::Signal);
+        panel->label(40.5f, 105.f, "IMG / IN", 8.f, theme::TextRole::Video);
         setPanel(panel);
         addScrews(this, box.size.x);
         Preview* preview = new Preview;
@@ -727,10 +765,17 @@ struct VideoMonitorWidget : ModuleWidget {
 
 struct VideoIoWidget : ModuleWidget {
     VideoIoWidget(VideoIoModule* module) : ModuleWidget(module) {
-        PrototypePanel* panel = new PrototypePanel(18, "VIDEO I/O", kCyan);
-        panel->label(7.f, 18.f, "SYPHON", 8.f, kMuted, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
-        panel->label(13.f, 108.f, "TO APP", 8.f, kCyan);
-        panel->label(78.f, 108.f, "FROM APP", 8.f, kCyan);
+        theme::Panel* panel = new theme::Panel(18, "VIDEO I/O", "RVX / SYPHON TRANSCEIVER", 6);
+        panel->cellBox(4.f, 17.f, 83.f, 15.f);
+        panel->cellBox(4.f, 33.f, 83.f, 13.f);
+        panel->cellBox(4.f, 47.f, 40.f, 11.f);
+        panel->cellBox(47.f, 47.f, 40.f, 11.f);
+        panel->label(7.f, 18.f, "01 / RECEIVE", 8.f, theme::TextRole::Primary,
+                     NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+        panel->label(7.f, 34.f, "02 / PUBLISH", 8.f, theme::TextRole::Primary,
+                     NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+        panel->label(13.f, 108.f, "IMG / TO APP", 8.f, theme::TextRole::Video);
+        panel->label(78.f, 108.f, "IMG / FROM APP", 8.f, theme::TextRole::Video);
         setPanel(panel);
         addScrews(this, box.size.x);
 
@@ -753,6 +798,8 @@ struct VideoIoWidget : ModuleWidget {
         publish->box.size = pos(38.f, 9.f);
         publish->node = node;
         publish->publish = true;
+        publish->text = "Publishing: Off";
+        publish->setRole(theme::TextRole::Secondary);
         addChild(publish);
 
         IoToggle* missing = new IoToggle;
@@ -760,12 +807,15 @@ struct VideoIoWidget : ModuleWidget {
         missing->box.size = pos(38.f, 9.f);
         missing->node = node;
         missing->publish = false;
+        missing->text = "Missing: Black";
+        missing->setRole(theme::TextRole::Secondary);
         addChild(missing);
 
         StatusText* status = new StatusText;
         status->box.pos = pos(6.f, 62.f);
         status->box.size = pos(79.f, 24.f);
         status->node = node;
+        status->module = module;
         addChild(status);
 
         addVideoInput(pos(13.f, 119.f), VideoIoModule::PUBLISH_INPUT, PortType::Image);

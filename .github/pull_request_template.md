@@ -10,6 +10,20 @@ Closes #<issue-number>
 
 <!-- Map the issue's acceptance criteria to checks and results. Link source evidence or artifacts where useful. State checks not run and unresolved limitations explicitly. -->
 
+**Screenshot evidence**
+
+<!-- Every PR must embed evidence here; do not remove this section or mark it N/A. Use a durable GitHub attachment or a repository image embed pinned to the commit containing the image. Confirm that each embed renders in this PR, is readable, is scoped to RVX, and contains no credentials, personal information, or unrelated private content. Local paths and expiring artifact links are insufficient. -->
+
+<!-- For UI-visible work, use representative native UI screenshots and include before/after states when that comparison is relevant. For non-UI work, capture an authentic relevant executed test, output, diagnostic, or rendered-document state. A screenshot supplements logs and review; it does not prove an acceptance gate that was not run. Refresh captures after relevant behavior changes. -->
+
+<!-- Caption every image using this form:
+Revision: `<exact captured commit SHA>`
+Scenario: <what was exercised or rendered>
+Evidence: <what the image shows>
+Limits: <what this capture does not establish>
+Source: <GitHub attachment or commit-pinned repository image>
+If this PR is still a draft and capture is unavailable, write `Capture pending` with the intended scenario and reason. A PR cannot become ready or merge until embedded evidence replaces that status. -->
+
 **Issue consistency audit**
 
 <!-- Record date, reviewed base/change revisions, all open issues/PRs reviewed, changed assumptions, issue/specification updates and unresolved follow-ups, or link the audit record. Record a no-change result when appropriate. Recheck before merge; append the actual post-merge baseline and reconciliation results after merging. -->
@@ -28,6 +42,7 @@ Closes #<issue-number>
 
 - [ ] This PR contains one issue's deliverable, targets the actual `main`, and has reconciled any merged prerequisite through a repeated issue audit and fresh actual-base review.
 - [ ] The issue's acceptance criteria are satisfied and supported by the validation above.
+- [ ] Screenshot evidence is embedded, readable and current for this revision, with a caption stating its revision, scenario, evidence and limits. A draft may record `Capture pending`, but it cannot become ready or merge until the evidence is present.
 - [ ] The open-issue audit is current and affected assumptions, specifications and dependencies are reconciled.
 - [ ] Code quality and reuse have been reviewed alongside the delivered behavior, as applicable to this change.
 - [ ] Any plugin implementation stays within its recorded explicit user approval; unresolved broader release and fidelity work remains proposed.
