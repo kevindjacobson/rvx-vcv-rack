@@ -2,6 +2,8 @@
 
 The user approved building issue #13 on September 7, 2026: “Let’s get building. Orchestrate a team”. This authorizes the six-module prototype, dependency setup and validation. It does not assert that the complete LZX release plan or its fidelity gates have passed. Issues #2, #4–#5 and #7–#9 retain their outstanding planning scope. The [shared signal, timing and feedback specification](SIGNAL-CONTRACTS.md) supplies issue #3’s contracts and acceptance cases; proposed interfaces and empirical gates remain unimplemented or unverified as labeled. Issue #6 delivered the [Memory Palace behavior sheet](MEMORY-PALACE.md); its unrun hardware and fidelity gates remain explicit.
 
+The user separately approved the [Video Recorder / Scrubber](VIDEO-RECORDER.md) in #33 on September 9, 2026. Its retained clip and transport semantics are a scoped extension to the original six modules; they do not complete this prototype’s outstanding acceptance gates.
+
 Initial validation target observed locally: Apple M4, 16 GiB memory, macOS 26.2 (25C56), VCV Rack Pro 2.6.6 standalone, arm64. DAW compatibility is not inferred. SDK 2.6.6 mac-arm64 SHA-256: 29414e52417992cbafa47e30f947c3c0c7a34e5c424bb83c5a0af8c24840481f.
 
 Prototype defaults: 720 × 480, 30000/1001 image ticks/second. This is a progressive working canvas; it does not implement NTSC interlace, blanking or composite timing. Four-channel float encoded RGB with straight alpha, top-left origin; fields have one float per active raster position. Intermediate finite signals remain signed and unclipped; display/Syphon export converts explicitly. CPU arithmetic is the initial measurable reference backend; Syphon uses an owned GPU context/device. GPU processing remains an evaluated expansion, not an implemented claim.

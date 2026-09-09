@@ -35,11 +35,13 @@ Test Image's **Phase Speed** animates every pattern. Turn it clockwise or counte
 
 Open `examples/RVX-Frame-Delay.vcv` to compare a moving ramp with its delayed image. It starts at 15 frames (about half a second). Turn **Frames** or right-click the knob to enter a count. Increasing the count may show black while the new history fills. The graph shares a memory limit; reduce the count if a budget diagnostic appears.
 
+Open `examples/RVX-Video-Recorder.vcv`, turn **Record** on, then off to retain a short clip. **Position** scrubs from first to last image; connected **Position CV** uses 0–10 V for the same range and overrides playback. Turn **Play** on and adjust signed **Speed** for forward/reverse playback; **Loop** repeats the clip. Capacity is 1–60 images (about two seconds at the default rate), subject to the shared memory budget. A full clip stops recording; turn Record off before starting again. **Clear** erases the clip. Recordings live only in memory: reopening a patch starts empty with Record and Play off.
+
 Video ports connect RVX modules. Ordinary audio/CV ports accept standard Rack signals. The monitor clips its preview to the display range; processing retains signed and above-range values.
 
 **Modules**
 
-The six prototype modules are experimental utilities. Other rows list proposed modules and LZX reference designs; reference entries are not included emulations.
+The prototype modules are experimental utilities. Other rows list proposed modules and LZX reference designs; reference entries are not included emulations.
 
 | Module / reference design | Function | Availability |
 |---|---|---|
@@ -51,6 +53,7 @@ The six prototype modules are experimental utilities. Other rows list proposed m
 | Component Split / Combine | Image and individual signal-field conversion | Unreleased |
 | CV Bridge | Rack audio/CV to video control conversion | Prototype |
 | Frame Delay | Adjustable 1–60-frame image delay and feedback storage | Prototype |
+| Video Recorder / Scrubber | Record a short clip, scrub by knob/CV and play forward/reverse | Prototype |
 | Still Image Input | Still-image loading | Unreleased |
 | NTSC Encoder | Image-to-composite signal encoding | Unreleased |
 | Dirty Mixer | Composite signal mixing and distortion | Unreleased |
