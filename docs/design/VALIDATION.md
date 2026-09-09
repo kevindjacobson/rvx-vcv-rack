@@ -93,7 +93,7 @@ Every image below is an authentic native window capture of runtime `470e6e0abffd
 
 ### Included examples
 
-The source patches are the unchanged files under `examples/` at the runtime revision. The [contract comparison](native/issue30/example-contract-check.json) records exact source and native-saved JSON SHA-256 hashes, module counts and cable counts. The [native JSON snapshots](native/issue30/saved-examples/) were copied from the disposable profile's autosave immediately after reopening and saving each native-saved `.vcv`. Comparison used a `1e-6` tolerance for float parameter serialization; all original module/plugin/model IDs, parameter IDs/values and cable IDs/endpoints matched. Rack adds its normal version/parameter/default state during serialization; the comparison does not claim byte-identical patch files.
+The source patches are the unchanged files under `examples/` at the runtime revision. The [contract comparison](native/issue30/example-contract-check.json) records exact source and native-saved JSON SHA-256 hashes, module counts and cable counts. The [native JSON snapshots](native/issue30/saved-examples/) were copied from the disposable profile's autosave immediately after reopening and saving each native-saved `.vcv`, with top-level local `path` metadata omitted from the committed evidence. The recorded native-saved JSON hashes identify these normalized snapshots. Comparison used a `1e-6` tolerance for float parameter serialization; all original module/plugin/model IDs, parameter IDs/values and cable IDs/endpoints matched. Rack adds its normal version/parameter/default state during serialization; the comparison does not claim byte-identical patch files.
 
 | Source patch | Native reload screenshot | Observation |
 |---|---|---|

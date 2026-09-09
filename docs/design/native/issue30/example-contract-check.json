@@ -21,7 +21,7 @@
     {
       "example": "RVX-Experimental-Feedback.vcv",
       "sourceSha256": "f97b63dc744e158f7a8fcf4c651d15fe930abb85017b191632778b09c5263fd3",
-      "nativeSavedJsonSha256": "1a67e59dd3dbdd2f8d7db16fe76f706af124b1ced7c3fb282ed29b23b40019df",
+      "nativeSavedJsonSha256": "d24f4cdac5c4c749c71586e855823f23faf205316556dd019134fac24d8892c2",
       "modules": 7,
       "cables": 7,
       "moduleParameterAndCableIdentitiesPreserved": true
@@ -29,7 +29,7 @@
     {
       "example": "RVX-Frame-Delay.vcv",
       "sourceSha256": "ab13f74fc8c033dc00434ea6c99d8e960a2702985ae0e754c68998ba246605a2",
-      "nativeSavedJsonSha256": "ee0fdc2d8c4a672b483747ed631638cf438c7b6001905d2702c125f5b1a0270e",
+      "nativeSavedJsonSha256": "75a82a22709944d00ba7c2422f39a438b1190ac8263b832f5298a96c98dd26a0",
       "modules": 4,
       "cables": 3,
       "moduleParameterAndCableIdentitiesPreserved": true
