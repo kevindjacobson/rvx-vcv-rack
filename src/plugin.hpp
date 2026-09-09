@@ -12,3 +12,5 @@ extern Model* modelRvxCvBridge;
 extern Model* modelRvxFrameDelay;
 extern Model* modelRvxVideoMonitor;
 extern Model* modelRvxVideoIo;
+
+extern Model* modelRvxVideoRecorder;

@@ -10,4 +10,5 @@ void init(Plugin* p) {
     p->addModel(modelRvxFrameDelay);
     p->addModel(modelRvxVideoMonitor);
     p->addModel(modelRvxVideoIo);
+    p->addModel(modelRvxVideoRecorder);
 }
