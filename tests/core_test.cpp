@@ -1460,6 +1460,68 @@ void testRecorderRetentionAndBudget() {
     CHECK(f.recorder->display()->recorderFrames == 0);
 }
 
+void testRecorderLoopOffAndSourceProvenance() {
+    for (bool stopPlay : {false, true}) {
+        RecorderFixture f;
+        const auto clip = f.record(3);
+        f.recorder->params[kRecorderPositionParam] = 1;
+        f.recorder->params[kRecorderPlayParam] = 1;
+        f.recorder->params[kRecorderSpeedParam] = .25f;
+        f.step(); CHECK(f.output() == clip[2]);
+        f.step(); f.step(); // Fractional phase 2.5 wraps its nearest image to zero.
+        CHECK(f.output() == clip[0]);
+        f.recorder->params[kRecorderLoopParam] = 0;
+        if (stopPlay) f.recorder->params[kRecorderPlayParam] = 0;
+        else f.recorder->params[kRecorderSpeedParam] = 0;
+        f.step(); CHECK(f.output() == clip[2]);
+        f.step(); CHECK(f.output() == clip[2]);
+    }
+    {
+        RecorderFixture f;
+        auto delay = std::make_shared<Node>(Kind::Delay);
+        delay->params[kDelayFramesParam] = 2;
+        f.graph.nodes.push_back(delay);
+        f.graph.connections = {connect(f.source, 0, delay, 0),
+                               connect(delay, 0, f.recorder, 0)};
+        for (int i = 0; i < 5; ++i) CHECK(f.step().errors == 0);
+        f.recorder->params[kRecorderCapacityParam] = 3;
+        f.recorder->params[kRecorderRecordParam] = 1;
+        std::vector<FramePtr> clip;
+        for (int i = 0; i < 3; ++i) {
+            CHECK(f.step().errors == 0);
+            clip.push_back(delay->display()->outputs[0]);
+            CHECK(clip.back()->sequence == static_cast<uint64_t>(3 + i));
+            CHECK(std::isfinite(clip.back()->seconds) &&
+                  std::abs(clip.back()->seconds - (.3 + .1 * i)) < 1e-9);
+        }
+        f.recorder->params[kRecorderRecordParam] = 0;
+        for (int i = 0; i < 3; ++i) {
+            f.recorder->params[kRecorderPositionParam] = i / 2.f;
+            CHECK(f.step().errors == 0);
+            CHECK(f.output() == clip[i]);
+            CHECK(f.output()->sequence == static_cast<uint64_t>(3 + i));
+            CHECK(std::isfinite(f.output()->seconds) &&
+                  std::abs(f.output()->seconds - (.3 + .1 * i)) < 1e-9);
+        }
+    }
+    {
+        RecorderFixture f;
+        auto io = std::make_shared<Node>(Kind::VideoIo);
+        f.graph.nodes = {f.recorder, io};
+        f.graph.connections = {connect(io, 0, f.recorder, 0)};
+        f.recorder->params[kRecorderCapacityParam] = 1;
+        f.recorder->params[kRecorderRecordParam] = 1;
+        f.step();
+        const auto black = io->display()->outputs[0];
+        CHECK(black && std::all_of(black->pixels.begin(), black->pixels.end(),
+                                  [](float value) { return value == 0.f; }));
+        CHECK(f.recorder->display()->recorderFrames == 1);
+        CHECK(f.recorder->display()->status.find("missing valid image") == std::string::npos);
+        f.recorder->params[kRecorderRecordParam] = 0;
+        f.step(); CHECK(f.output() == black);
+    }
+}
+
 void testRecorderSharedStorageAndRejectedGraphs() {
     RecorderFixture f;
     auto second = std::make_shared<Node>(Kind::Recorder);
@@ -1530,6 +1592,7 @@ void testRecorderSharedStorageAndRejectedGraphs() {
 } // namespace
 
 int main() {
+    testRecorderLoopOffAndSourceProvenance();
     testRecorderSharedStorageAndRejectedGraphs();
     testRecorderCaptureAndSeek();
     testRecorderTransport();

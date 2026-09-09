@@ -475,6 +475,9 @@ struct Renderer::Impl {
                     }
                 }
             }
+            // Switching Loop off must settle its final fractional interval at the
+            // last image even when playback is paused or Speed is zero.
+            if (!loop) playhead = std::clamp(playhead, 0.0, last);
             // Nearest-image selection wraps the last half-interval to image zero.
             // Ignore sub-nanoframe timestamp cancellation at exact half-image ties.
             constexpr double nearestTieTolerance = 1e-9;
